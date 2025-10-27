@@ -1,0 +1,55 @@
+#!/bin/bash
+
+FTP_DIR="/home/homeserver/ftp"
+CONFIG_PATH="/etc/vsftpd.conf"
+FTP_PORT=12121
+
+# Detect package manager (apt or pacman)
+if command -v apt > /dev/null; then
+    PACKAGE_MANAGER="apt"
+elif command -v pacman > /dev/null; then
+    PACKAGE_MANAGER="pacman"
+else
+    echo "Neither apt nor pacman is installed. Exiting."
+    exit 1
+fi
+
+# Install vsftpd based on package manager
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y vsftpd
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -S vsftpd
+fi
+
+# Create FTP directory if it doesn't exist
+sudo mkdir -p "$FTP_DIR"
+
+# Backup existing configuration
+sudo cp "$CONFIG_PATH" "$CONFIG_PATH.backup"
+
+# Configure vsftpd
+sudo bash -c "cat > $CONFIG_PATH" <<EOL
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+dirmessage_enable=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+chown_uploads=YES
+chroot_local_user=YES
+listen=YES
+pam_service_name=vsftpd
+allow_writeable_chroot=YES
+local_root=$FTP_DIR
+listen_port=$FTP_PORT
+EOL
+
+# Set correct permissions for FTP directory
+sudo chmod 755 "$FTP_DIR"
+sudo chown "$USER:$(id -gn)" "$FTP_DIR"
+
+# Restart vsftpd service
+sudo systemctl enable --now vsftpd
