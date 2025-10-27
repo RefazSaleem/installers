@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FTP_DIR="/home/homeserver/ftp"
+FTP_DIR="/mnt/ftp"
 CONFIG_PATH="/etc/vsftpd.conf"
 FTP_PORT=12121
 
