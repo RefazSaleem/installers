@@ -1,0 +1,140 @@
+#!/bin/bash
+
+# Define paths and variables
+VENV_PATH="$HOME/.home"
+SCRIPT_PATH="$HOME/.local/bin/synapse"
+SYNAPSE_SERVICE="matrix-synapse.service"
+SERVICE_PATH="/etc/systemd/system"
+CONFIG_PATH="/etc/configs/synapse"
+SERVERHOST="localhost"
+SERVERIP="0.0.0.0"
+SERVERPORT="18008"
+LOG_FILE="$CONFIG_PATH/localhost.log.config"
+LOG_PATH="$CONFIG_PATH/homeserver.log"
+CT_CONF="/etc/turnserver.conf"
+
+# Determine package manager
+if command -v apt > /dev/null; then
+    PACKAGE_MANAGER="apt"
+	PYVER="python3"
+elif command -v pacman > /dev/null; then
+    PACKAGE_MANAGER="pacman"
+	PYVER="python3"
+else
+    echo "Neither apt nor pacman is installed. Exiting."
+    exit 1
+fi
+
+# Install dependencies
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 libpq-dev coturn openssl libssl-dev curl
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs coturn openssl curl
+fi
+
+AUTHKEY=$(openssl rand -hex 32)
+EXT_IPADD=$(curl -s ifconfig.me)
+
+sudo tee "$CT_CONF" > /dev/null <<EOF
+listening-port=3478
+tls-listening-port=5349
+realm=$SERVERHOST
+server-name=matrix-turn
+fingerprint
+lt-cred-mech
+use-auth-secret
+static-auth-secret=$AUTHKEY
+external-ip=$EXT_IPADD
+no-loopback-peers
+no-multicast-peers
+EOF
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "$VENV_PATH" ]; then
+    $PYVER -m venv "$VENV_PATH"
+fi
+
+# Activate virtual environment and install Synapse
+source "$VENV_PATH/bin/activate"
+"$VENV_PATH/bin/pip" install --upgrade pip
+"$VENV_PATH/bin/pip" install --no-warn-script-location matrix-synapse psycopg2 psycopg2-binary
+
+# Ensure necessary directories exist
+mkdir -p "$HOME/.local/bin" 
+sudo mkdir -p "$CONFIG_PATH" "$SERVICE_PATH"
+
+# Create the start script for Synapse
+#cat > "$SCRIPT_PATH" <<EOL
+#
+#source "$VENV_PATH/bin/activate"
+#exec "$VENV_PATH/bin/python" -m synapse.app.homeserver --config-path "$CONFIG_PATH/homeserver.yaml"
+#EOL
+#chmod +x "$SCRIPT_PATH"
+
+# Create systemd user service
+sudo tee "$SERVICE_PATH/$SYNAPSE_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Matrix Synapse
+After=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$CONFIG_PATH
+ExecStart=$VENV_PATH/bin/python -m synapse.app.homeserver --config-path $CONFIG_PATH/homeserver.yaml
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Generate default Synapse config if it doesn't exist
+if [ ! -f "$CONFIG_PATH/homeserver.yaml" ]; then
+    sudo "$VENV_PATH/bin/python" -m synapse.app.homeserver \
+        --server-name "$SERVERHOST" \
+        --config-path "$CONFIG_PATH/homeserver.yaml" \
+        --generate-config \
+        --report-stats=no
+fi
+
+# Update configuration file using yq
+sudo sed -i "s/^server_name: .*/server_name: \"$SERVERHOST\"/" "$CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s|^pid_file: .*|pid_file: \"$CONFIG_PATH/homeserver.pid\"|" "$CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s/\(port: \)[0-9]\+/\1$SERVERPORT/" "$CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s/\(bind_addresses: \).*/\1[\"0.0.0.0\"]/" "$CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s|^media_store_path: .*|media_store_path: \"$CONFIG_PATH/media_store\"|" "$CONFIG_PATH/homeserver.yaml"
+
+# Fix database path for SQLite
+sudo sed -i "/database:/,+3 s|name: .*|name: sqlite3|" "$CONFIG_PATH/homeserver.yaml"
+sudo sed -i "/database:/,+3 s|database: .*|database: \"$CONFIG_PATH/homeserver.db\"|" "$CONFIG_PATH/homeserver.yaml"
+
+
+cat <<EOF | sudo tee -a "$CONFIG_PATH/homeserver.yaml" > /dev/null
+
+turn_uris:
+  - "turn:$SERVERHOST:3478?transport=udp"
+  - "turns:$SERVERHOST:5349?transport=tcp"
+turn_shared_secret: $AUTHKEY
+turn_user_lifetime: 86400000
+turn_allow_guests: true
+
+EOF
+
+if [ -f "$CONFIG_PATH/homeserver.db" ]; then
+    sudo chmod 600 "$CONFIG_PATH/homeserver.db"
+fi
+sudo chown -R $USER: "$CONFIG_PATH"
+# Fix log file path
+sudo sed -i "s|filename: .*|filename: \"$LOG_PATH\"|" "$LOG_FILE"
+
+# Reload systemd and start Synapse as a user service
+sudo systemctl import-environment PATH
+sudo systemctl daemon-reload
+sudo systemctl enable --now coturn
+sudo systemctl enable --now matrix-synapse
+
+
+echo "Matrix Synapse setup completed and is running as a system service."
