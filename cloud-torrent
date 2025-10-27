@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DLD_DIR="/mnt/d/Downloads"
+DLD_DIR="/mnt/ftp/Downloads"
 CONF_PATH="$DLD_DIR/.config.json"
 SERV_FILE="/etc/systemd/system/cloud-torrent.service"
 PORT="13000"
