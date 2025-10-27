@@ -1,0 +1,27 @@
+#!/bin/sh
+
+BASE_DIR="$HOME/.docker/hass"
+CONF_DIR="$HOME/.config/home-assistant"
+COMPOSE_FILE="$BASE_DIR/docker-compose.yaml"
+
+mkdir -p "$BASE_DIR"
+mkdir -p "$CONF_DIR"
+
+cat > "$COMPOSE_FILE" << EOF
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - $CONF_DIR:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: bridge
+    ports:
+      - "18123:8123"
+EOF
+
+cd "$BASE_DIR"
+sudo docker compose up -d

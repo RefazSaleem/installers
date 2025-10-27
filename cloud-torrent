@@ -1,0 +1,29 @@
+#!/bin/bash
+
+DLD_DIR="/mnt/d/Downloads"
+CONF_PATH="$DLD_DIR/.config.json"
+SERV_FILE="/etc/systemd/system/cloud-torrent.service"
+PORT="13000"
+
+mkdir -p "$DLD_DIR"
+
+curl https://i.jpillora.com/cloud-torrent! | bash
+sudo tee "$SERV_FILE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/cloud-torrent --host 0.0.0.0 --port $PORT --config-path $CONF_PATH
+WorkingDirectory=$DLD_DIR
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now cloud-torrent

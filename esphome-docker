@@ -1,0 +1,26 @@
+#!/bin/sh
+
+BASE_DIR="$HOME/.docker/esphome"
+CONF_DIR="$HOME/.config/esphome"
+COMPOSE_FILE="$BASE_DIR/docker-compose.yaml"
+
+mkdir -p "$BASE_DIR"
+mkdir -p "$CONF_DIR"
+
+cat > "$COMPOSE_FILE" << EOF
+services:
+  esphome:
+    container_name: esphome
+    image: esphome/esphome
+    volumes:
+      - $CONF_DIR:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    privileged: true
+    network_mode: bridge
+    ports:
+      - "18323:6052"
+EOF
+
+cd "$BASE_DIR"
+sudo docker compose up -d

@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Define paths and variables
+VENV_PATH="$HOME/.home"
+SCRIPT_PATH="$HOME/.local/bin/musicassist"
+MASS_SERVICE="music-assistant.service"
+SERVICE_PATH="/etc/systemd/system"
+USERNAME=$(whoami)  # Real user, not root
+# Determine package manager
+
+if command -v apt > /dev/null; then
+    PACKAGE_MANAGER="apt"
+    PYVER="python3"
+elif command -v pacman > /dev/null; then
+    PACKAGE_MANAGER="pacman"
+    PYVER="python"
+else
+    echo "Neither apt nor pacman is installed. Exiting."
+    exit 1
+fi
+
+# Install dependencies
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 unzip wget
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap unzip wget
+fi
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "$VENV_PATH" ]; then
+  $PYVER -m venv "$VENV_PATH"
+fi
+
+# Activate virtual environment and install Music Assistant
+source "$VENV_PATH/bin/activate"
+"$VENV_PATH/bin/pip" install --upgrade pip
+"$VENV_PATH/bin/pip" install music-assistant
+
+# Ensure necessary directories exist
+mkdir -p "$HOME/.local/bin"
+
+# Create executable launcher
+cat > "$SCRIPT_PATH" <<EOL
+#!/bin/bash
+source "$VENV_PATH/bin/activate"
+exec mass
+EOL
+chmod +x "$SCRIPT_PATH"
+
+# Create system-wide systemd service
+sudo tee "$SERVICE_PATH/$MASS_SERVICE" > /dev/null <<EOL
+[Unit]
+Description=Music Assistant
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=$SCRIPT_PATH
+Restart=on-failure
+RestartSec=5s
+User=$USERNAME
+Environment=HOME=/home/$USERNAME
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Reload and enable service
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$MASS_SERVICE"
