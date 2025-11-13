@@ -78,7 +78,7 @@ source "$VENV_PATH/bin/activate"
 # Ensure necessary directories exist
 mkdir -p "$HOME/.local/bin" 
 sudo mkdir -p {$CONFIG_PATH,$SERVICE_PATH,$LOG_PATH,$MEDIA_PATH}
-sudo chown $USER: {$CONFIG_PATH,$SERVICE_PATH,$LOG_PATH,$MEDIA_PATH}
+sudo chown $USER: "$CONFIG_PATH" "$SERVICE_PATH" "$LOG_PATH" "$MEDIA_PATH"
 
 sudo tee "$USER_ADD_SCRIPT" > /dev/null <<EOF
 source "$VENV_PATH/bin/activate"
@@ -140,7 +140,7 @@ EOF
 
 cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
 
-https://$(TS_HOST):8008 {
+https://$TS_HOST:8008 {
     reverse_proxy localhost:18008
     tls internal
 }
@@ -159,7 +159,7 @@ sudo sed -i "s|filename: .*|filename: \"$LOG_FILE\"|" "$LOG_DEF_FILE"
 # Reload systemd and start Synapse as a user service
 sudo systemctl import-environment PATH
 sudo systemctl daemon-reload
-sudo systemctl enable --now {coturn,matrix-synapse}
+sudo systemctl enable --now coturn matrix-synapse
 sudo systemctl reload caddy
 
 
