@@ -3,7 +3,7 @@
 BASE_DIR="$HOME/.docker/hass"
 CONF_DIR="$HOME/.config/home-assistant"
 COMPOSE_FILE="$BASE_DIR/docker-compose.yaml"
-
+CADDY_DIR="/etc/caddy"
 mkdir -p "$BASE_DIR"
 mkdir -p "$CONF_DIR"
 
@@ -25,3 +25,24 @@ EOF
 
 cd "$BASE_DIR"
 sudo docker compose up -d
+PROXY_RANGE=$(sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' homeassistant | awk -F. '{print $1"."$2".0.0/16"}')
+TAILSCALE_HOST=$(tailscale status | grep $(tailscale ip -4) | awk '{print $2}')
+
+cat <<EOF | sudo tee -a "$CONF_DIR/configuration.yaml" > /dev/null
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - $PROXY_RANGE
+
+EOF
+
+sudo mkdir -p $CADDY_DIR
+cat <<EOF | sudo tee -a "$CADDY_DIR/Caddyfile" > /dev/null
+https://$TAILSCALE_HOST:8123 {
+    reverse_proxy localhost:18123
+    encode gzip
+    tls internal
+}
+EOF
+
+sudo systemctl restart caddy
