@@ -15,9 +15,11 @@ LOG_PATH="/var/log/synapse/"
 LOG_FILE="$LOG_PATH/homeserver.log"
 TURN_LOG="/var/log/turnserver/turn.log"
 CT_CONF="/etc/turnserver.conf"
+CADDY_CONF="/etc/caddy/Caddyfile"
 USER_ADD_SCRIPT="/usr/bin/synapse-signup"
 AUTHKEY=$(openssl rand -hex 32)
 TS_IP=$(tailscale ip -4)
+TS_HOST=$(tailscale status | grep $(tailscale ip -4) | awk '{print $2}')
 
 # Determine package manager
 if command -v apt > /dev/null; then
@@ -148,6 +150,17 @@ turn_password: "ignored"
 
 EOF
 
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+
+https://$(TS_HOST):8008 {
+    reverse_proxy localhost:18008
+    tls internal
+}
+EOF
+
+
+EOF
+
 if [ -f "$CONFIG_PATH/homeserver.db" ]; then
     sudo chmod 600 "$CONFIG_PATH/homeserver.db"
 fi
@@ -158,8 +171,8 @@ sudo sed -i "s|filename: .*|filename: \"$LOG_FILE\"|" "$LOG_DEF_FILE"
 # Reload systemd and start Synapse as a user service
 sudo systemctl import-environment PATH
 sudo systemctl daemon-reload
-sudo systemctl enable --now coturn
-sudo systemctl enable --now matrix-synapse
+sudo systemctl enable --now {coturn,matrix-synapse}
+sudo systemctl reload caddy
 
 
 echo "Matrix Synapse setup completed and is running as a system service."
