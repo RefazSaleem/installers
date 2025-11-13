@@ -48,7 +48,7 @@ relay-ip=$SERVERIP
 lt-cred-mech
 use-auth-secret
 static-auth-secret=$AUTHKEY
-realm=lan.local
+realm=SERVERHOST
 no-stdout-log
 simple-log
 log-file=$TURN_LOG
