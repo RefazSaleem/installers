@@ -6,12 +6,14 @@ SCRIPT_PATH="$HOME/.local/bin/synapse"
 SYNAPSE_SERVICE="matrix-synapse.service"
 SERVICE_PATH="/etc/systemd/system"
 CONFIG_PATH="/etc/configs/synapse"
+MEDIA_PATH="/mnt/Chats"
 SERVERHOST="matrix.private"
 SERVERIP="0.0.0.0"
 SERVERPORT="18008"
-LOG_FILE="$CONFIG_PATH/localhost.log.config"
+LOG_FILE="$CONFIG_PATH/$SERVERHOST.log.config"
 LOG_PATH="$CONFIG_PATH/homeserver.log"
 CT_CONF="/etc/turnserver.conf"
+USER_ADD_SCRIPT="/usr/bin/synapse-signup"
 
 # Determine package manager
 if command -v apt > /dev/null; then
@@ -73,6 +75,17 @@ sudo mkdir -p "$CONFIG_PATH" "$SERVICE_PATH"
 #EOL
 #chmod +x "$SCRIPT_PATH"
 
+
+sudo tee "$USER_ADD_SCRIPT" > /dev/null <<EOF
+
+source "$VENV_PATH/bin/activate"
+exec "register_new_matrix_user" -c "$CONFIG_PATH/homeserver.yaml" "http://localhost:$SERVERPORT"
+EOF
+
+sudo chmod +x "$USER_ADD_SCRIPT"
+
+
+
 # Create systemd user service
 sudo tee "$SERVICE_PATH/$SYNAPSE_SERVICE" > /dev/null <<EOF
 [Unit]
@@ -91,6 +104,9 @@ RestartSec=5s
 WantedBy=default.target
 EOF
 
+sudo mkdir -p $MEDIA_PATH
+sudo chown $USER: $MEDIA_PATH
+
 # Generate default Synapse config if it doesn't exist
 if [ ! -f "$CONFIG_PATH/homeserver.yaml" ]; then
     sudo "$VENV_PATH/bin/python" -m synapse.app.homeserver \
@@ -105,7 +121,7 @@ sudo sed -i "s/^server_name: .*/server_name: \"$SERVERHOST\"/" "$CONFIG_PATH/hom
 sudo sed -i "s|^pid_file: .*|pid_file: \"$CONFIG_PATH/homeserver.pid\"|" "$CONFIG_PATH/homeserver.yaml"
 sudo sed -i "s/\(port: \)[0-9]\+/\1$SERVERPORT/" "$CONFIG_PATH/homeserver.yaml"
 sudo sed -i "s/\(bind_addresses: \).*/\1[\"0.0.0.0\"]/" "$CONFIG_PATH/homeserver.yaml"
-sudo sed -i "s|^media_store_path: .*|media_store_path: \"$CONFIG_PATH/media_store\"|" "$CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s|^media_store_path: .*|media_store_path: \"$MEDIA_PATH/media_store\"|" "$CONFIG_PATH/homeserver.yaml"
 
 # Fix database path for SQLite
 sudo sed -i "/database:/,+3 s|name: .*|name: sqlite3|" "$CONFIG_PATH/homeserver.yaml"
