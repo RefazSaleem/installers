@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Define paths and variables
-VENV_PATH="$HOME/.home"
-SCRIPT_PATH="$HOME/.local/bin/synapse"
+VENV_PATH="$HOME/.chat"
 SYNAPSE_SERVICE="matrix-synapse.service"
 SERVICE_PATH="/etc/systemd/system"
 CONFIG_PATH="/etc/configs/synapse"
@@ -81,21 +80,10 @@ mkdir -p "$HOME/.local/bin"
 sudo mkdir -p {$CONFIG_PATH,$SERVICE_PATH,$LOG_PATH,$MEDIA_PATH}
 sudo chown $USER: {$CONFIG_PATH,$SERVICE_PATH,$LOG_PATH,$MEDIA_PATH}
 
-# Create the start script for Synapse
-#cat > "$SCRIPT_PATH" <<EOL
-#
-#source "$VENV_PATH/bin/activate"
-#exec "$VENV_PATH/bin/python" -m synapse.app.homeserver --config-path "$CONFIG_PATH/homeserver.yaml"
-#EOL
-#chmod +x "$SCRIPT_PATH"
-
-
 sudo tee "$USER_ADD_SCRIPT" > /dev/null <<EOF
-
 source "$VENV_PATH/bin/activate"
 exec "register_new_matrix_user" -c "$CONFIG_PATH/homeserver.yaml" "http://localhost:$SERVERPORT"
 EOF
-
 sudo chmod +x "$USER_ADD_SCRIPT"
 
 
