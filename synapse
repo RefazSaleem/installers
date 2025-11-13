@@ -93,6 +93,7 @@ sudo chmod +x "$USER_ADD_SCRIPT"
 sudo mkdir -p $MEDIA_PATH
 sudo mkdir -p $LOG_PATH
 sudo chown $USER: $MEDIA_PATH
+sudo chown $USER: $LOG_PATH
 
 
 # Create systemd user service
