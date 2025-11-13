@@ -39,12 +39,16 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
 fi
 
 AUTHKEY=$(openssl rand -hex 32)
+LAN_IP=$(ip -4 addr show $(ip route show default | awk '{print $5}') | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+TS_IP=$(tailscale ip -4)
 
 sudo tee "$CT_CONF" > /dev/null <<EOF
 listening-port=3478
 tls-listening-port=5349
 listening-ip=$SERVERIP
 relay-ip=$SERVERIP
+relay-ip=$LAN_IP
+relay-ip=$TS_IP
 lt-cred-mech
 use-auth-secret
 static-auth-secret=$AUTHKEY
