@@ -16,6 +16,8 @@ LOG_FILE="$LOG_PATH/homeserver.log"
 TURN_LOG="/var/log/turnserver/turn.log"
 CT_CONF="/etc/turnserver.conf"
 USER_ADD_SCRIPT="/usr/bin/synapse-signup"
+AUTHKEY=$(openssl rand -hex 32)
+TS_IP=$(tailscale ip -4)
 
 # Determine package manager
 if command -v apt > /dev/null; then
@@ -38,21 +40,19 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs coturn openssl curl
 fi
 
-AUTHKEY=$(openssl rand -hex 32)
-LAN_IP=$(ip -4 addr show $(ip route show default | awk '{print $5}') | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-TS_IP=$(tailscale ip -4)
 
 sudo tee "$CT_CONF" > /dev/null <<EOF
+listening-ip=$TS_IP
+external-ip=$TS_IP
+relay-ip=$TS_IP
 listening-port=3478
 tls-listening-port=5349
-listening-ip=$SERVERIP
-relay-ip=$SERVERIP
-relay-ip=$LAN_IP
-relay-ip=$TS_IP
+min-port=49152
+max-port=49552
 lt-cred-mech
 use-auth-secret
 static-auth-secret=$AUTHKEY
-realm=SERVERHOST
+realm=$SERVERHOST
 no-stdout-log
 simple-log
 log-file=$TURN_LOG
@@ -76,7 +76,8 @@ source "$VENV_PATH/bin/activate"
 
 # Ensure necessary directories exist
 mkdir -p "$HOME/.local/bin" 
-sudo mkdir -p "$CONFIG_PATH" "$SERVICE_PATH"
+sudo mkdir -p {$CONFIG_PATH,$SERVICE_PATH,$LOG_PATH,$MEDIA_PATH}
+sudo chown $USER: {$CONFIG_PATH,$SERVICE_PATH,$LOG_PATH,$MEDIA_PATH}
 
 # Create the start script for Synapse
 #cat > "$SCRIPT_PATH" <<EOL
@@ -94,10 +95,6 @@ exec "register_new_matrix_user" -c "$CONFIG_PATH/homeserver.yaml" "http://localh
 EOF
 
 sudo chmod +x "$USER_ADD_SCRIPT"
-sudo mkdir -p $MEDIA_PATH
-sudo mkdir -p $LOG_PATH
-sudo chown $USER: $MEDIA_PATH
-sudo chown $USER: $LOG_PATH
 
 
 # Create systemd user service
@@ -143,11 +140,11 @@ sudo sed -i "/database:/,+3 s|database: .*|database: \"$CONFIG_PATH/homeserver.d
 cat <<EOF | sudo tee -a "$CONFIG_PATH/homeserver.yaml" > /dev/null
 
 turn_uris:
-  - "turn:$SERVERHOST:3478?transport=udp"
-  - "turns:$SERVERHOST:5349?transport=tcp"
+  - "turn:$TS_IP:3478?transport=udp"
+  - "turns:$TS_IP:5349?transport=tcp"
 turn_shared_secret: $AUTHKEY
-turn_user_lifetime: 86400000
-turn_allow_guests: true
+turn_username: "ignored"
+turn_password: "ignored"
 
 EOF
 
