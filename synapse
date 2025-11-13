@@ -13,7 +13,7 @@ SERVERPORT="18008"
 LOG_DEF_FILE="$CONFIG_PATH/$SERVERHOST.log.config"
 LOG_PATH="/var/log/synapse/"
 LOG_FILE="$LOG_PATH/homeserver.log"
-TURN_LOG="var/log/turnserver/turn.log"
+TURN_LOG="/var/log/turnserver/turn.log"
 CT_CONF="/etc/turnserver.conf"
 USER_ADD_SCRIPT="/usr/bin/synapse-signup"
 
