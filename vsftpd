@@ -47,7 +47,7 @@ EOL
 
 sudo bash -c "cat > $SERVICE_PATH" <<EOL
 [Unit]
-Description=vsftpd for RefazAjeesha
+Description=vsftpd for $NEW_USER
 After=network-online.target
 
 [Service]
