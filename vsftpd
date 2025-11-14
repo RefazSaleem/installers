@@ -8,9 +8,6 @@ FTP_DIR="/mnt/ftp/$NEW_USER"
 PAM_FILE="/etc/pam.d/$NEW_USER"
 CONFIG_PATH="/etc/vsftpd_$NEW_USER.conf"
 SERVICE_PATH="/etc/systemd/system/$NEW_USER.service"
-echo $CONFIG_PATH
-echo $SERVICE_PATH
-echo $PAM_FILE
 
 # Detect package manager (apt or pacman)
 if command -v apt > /dev/null; then
