@@ -148,7 +148,7 @@ EOF
 
 cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
 http://$TS_HOST:8007 {
-    reverse_proxy localhost:18008
+    reverse_proxy localhost:$SERVERPORT
 }
 
 https://$TS_DN:8008 {
