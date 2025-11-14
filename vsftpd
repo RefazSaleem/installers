@@ -39,7 +39,7 @@ connect_from_port_20=YES
 chown_uploads=YES
 chroot_local_user=YES
 listen=YES
-pam_service_name=vsftpd_ra
+pam_service_name=$NEW_USER
 allow_writeable_chroot=YES
 local_root=$FTP_DIR
 listen_port=$FTP_PORT
@@ -66,7 +66,7 @@ account required pam_unix.so
 EOL
 
 sudo groupadd -f $VSFTPD_GROUP
-sudo useradd -r -d "$FTP_DIR" -s /bin/false -g $VSFTPD_GROUP $NEW_USER
+sudo useradd -d "$FTP_DIR" -s /usr/sbin/nologin -g $VSFTPD_GROUP $NEW_USER
 sudo mkdir -p "$FTP_DIR"
 sudo chown -R $NEW_USER:$VSFTPD_GROUP "$FTP_DIR"
 sudo chmod 755 "$FTP_DIR"
