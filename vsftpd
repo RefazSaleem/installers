@@ -1,8 +1,16 @@
 #!/bin/bash
 
-FTP_DIR="/mnt/ftp"
-CONFIG_PATH="/etc/vsftpd.conf"
+NEW_USER="User"
+FTP_PASS="Password"
 FTP_PORT=12121
+VSFTPD_GROUP="ftp"
+FTP_DIR="/mnt/ftp/$NEW_USER"
+PAM_FILE="/etc/pam.d/$NEW_USER"
+CONFIG_PATH="/etc/vsftpd_$NEW_USER.conf"
+SERVICE_PATH="/etc/systemd/system/$NEW_USER.service"
+echo $CONFIG_PATH
+echo $SERVICE_PATH
+echo $PAM_FILE
 
 # Detect package manager (apt or pacman)
 if command -v apt > /dev/null; then
@@ -22,13 +30,6 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -S vsftpd
 fi
 
-# Create FTP directory if it doesn't exist
-sudo mkdir -p "$FTP_DIR"
-
-# Backup existing configuration
-sudo cp "$CONFIG_PATH" "$CONFIG_PATH.backup"
-
-# Configure vsftpd
 sudo bash -c "cat > $CONFIG_PATH" <<EOL
 anonymous_enable=NO
 local_enable=YES
@@ -41,15 +42,40 @@ connect_from_port_20=YES
 chown_uploads=YES
 chroot_local_user=YES
 listen=YES
-pam_service_name=vsftpd
+pam_service_name=vsftpd_ra
 allow_writeable_chroot=YES
 local_root=$FTP_DIR
 listen_port=$FTP_PORT
 EOL
 
-# Set correct permissions for FTP directory
-sudo chmod 755 "$FTP_DIR"
-sudo chown "$USER:$(id -gn)" "$FTP_DIR"
+sudo bash -c "cat > $SERVICE_PATH" <<EOL
+[Unit]
+Description=vsftpd for RefazAjeesha
+After=network-online.target
 
-# Restart vsftpd service
-sudo systemctl enable --now vsftpd
+[Service]
+ExecStart=/usr/bin/vsftpd  $CONFIG_PATH
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+sudo bash -c "cat > $PAM_FILE" <<EOL
+#%PAM-1.0
+auth    required pam_unix.so
+account required pam_unix.so
+EOL
+
+sudo groupadd -f $VSFTPD_GROUP
+sudo useradd -r -d "$FTP_DIR" -s /bin/false -g $VSFTPD_GROUP $NEW_USER
+sudo mkdir -p "$FTP_DIR"
+sudo chown -R $NEW_USER:$VSFTPD_GROUP "$FTP_DIR"
+sudo chmod 755 "$FTP_DIR"
+sudo chown root:root $CONFIG_PATH
+sudo chmod 600 $CONFIG_PATH
+sudo usermod -d $FTP_DIR $NEW_USER
+echo "$NEW_USER:$FTP_PASS" | sudo chpasswd
+
+sudo systemctl enable --now vsftpd_ra
