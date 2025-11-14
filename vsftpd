@@ -7,7 +7,7 @@ VSFTPD_GROUP="ftp"
 FTP_DIR="/mnt/ftp/$NEW_USER"
 PAM_FILE="/etc/pam.d/$NEW_USER"
 CONFIG_PATH="/etc/vsftpd_$NEW_USER.conf"
-SERVICE_PATH="/etc/systemd/system/$NEW_USER.service"
+SERVICE_PATH="/etc/systemd/system/ftp_$NEW_USER.service"
 
 # Detect package manager (apt or pacman)
 if command -v apt > /dev/null; then
@@ -75,4 +75,4 @@ sudo chmod 600 $CONFIG_PATH
 sudo usermod -d $FTP_DIR $NEW_USER
 echo "$NEW_USER:$FTP_PASS" | sudo chpasswd
 
-sudo systemctl enable --now vsftpd_ra
+sudo systemctl enable --now ftp_$NEW_USER
