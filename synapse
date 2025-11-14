@@ -15,10 +15,13 @@ LOG_FILE="$LOG_PATH/homeserver.log"
 TURN_LOG="/var/log/turnserver/turn.log"
 CT_CONF="/etc/turnserver.conf"
 CADDY_CONF="/etc/caddy/Caddyfile"
+CADDY_CERTS="/var/lib/caddy/certs"
 USER_ADD_SCRIPT="/usr/bin/synapse-signup"
 AUTHKEY=$(openssl rand -hex 32)
 TS_IP=$(tailscale ip -4)
 TS_HOST=$(tailscale status | grep $(tailscale ip -4) | awk '{print $2}')
+TS_DN=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+MACHINE=$(hostname)
 
 # Determine package manager
 if command -v apt > /dev/null; then
@@ -46,6 +49,9 @@ sudo tee "$CT_CONF" > /dev/null <<EOF
 listening-ip=$TS_IP
 external-ip=$TS_IP
 relay-ip=$TS_IP
+listening-ip=$TS_DN
+external-ip=$TS_DN
+relay-ip=$TS_DN
 listening-port=3478
 tls-listening-port=5349
 min-port=49152
@@ -132,6 +138,8 @@ cat <<EOF | sudo tee -a "$CONFIG_PATH/homeserver.yaml" > /dev/null
 turn_uris:
   - "turn:$TS_IP:3478?transport=udp"
   - "turns:$TS_IP:5349?transport=tcp"
+  - "turn:$TS_DN:3478?transport=udp"
+  - "turns:$TS_DN:5349?transport=tcp"
 turn_shared_secret: $AUTHKEY
 turn_username: "ignored"
 turn_password: "ignored"
@@ -139,14 +147,14 @@ turn_password: "ignored"
 EOF
 
 cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
-
-https://$TS_HOST:8008 {
+http://$TS_HOST:8007 {
     reverse_proxy localhost:18008
-    tls internal
 }
-EOF
 
-
+https://$TS_DN:8008 {
+    reverse_proxy localhost:18008
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
 EOF
 
 if [ -f "$CONFIG_PATH/homeserver.db" ]; then
