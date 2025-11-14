@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NEW_USER="User"
+ADD_USER="User"
 FTP_PASS="Password"
 FTP_PORT=12121
 VSFTPD_GROUP="ftp"
@@ -26,6 +26,8 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -S vsftpd
 fi
+
+echo "$ADD_USER" | tr 'A-Z' 'a-z'
 
 sudo bash -c "cat > $CONFIG_PATH" <<EOL
 anonymous_enable=NO
