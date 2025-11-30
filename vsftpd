@@ -1,0 +1,78 @@
+#!/bin/bash
+
+NEW_USER="user"
+FTP_PASS="Password"
+FTP_PORT=12121
+VSFTPD_GROUP="ftp"
+FTP_DIR="/mnt/ftp/$NEW_USER"
+PAM_FILE="/etc/pam.d/$NEW_USER"
+CONFIG_PATH="/etc/vsftpd_$NEW_USER.conf"
+SERVICE_PATH="/etc/systemd/system/ftp_$NEW_USER.service"
+
+# Detect package manager (apt or pacman)
+if command -v apt > /dev/null; then
+    PACKAGE_MANAGER="apt"
+elif command -v pacman > /dev/null; then
+    PACKAGE_MANAGER="pacman"
+else
+    echo "Neither apt nor pacman is installed. Exiting."
+    exit 1
+fi
+
+# Install vsftpd based on package manager
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y vsftpd
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -S vsftpd
+fi
+
+sudo bash -c "cat > $CONFIG_PATH" <<EOL
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+dirmessage_enable=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+chown_uploads=YES
+chroot_local_user=YES
+listen=YES
+pam_service_name=$NEW_USER
+allow_writeable_chroot=YES
+local_root=$FTP_DIR
+listen_port=$FTP_PORT
+EOL
+
+sudo bash -c "cat > $SERVICE_PATH" <<EOL
+[Unit]
+Description=vsftpd for $NEW_USER
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/vsftpd  $CONFIG_PATH
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+sudo bash -c "cat > $PAM_FILE" <<EOL
+#%PAM-1.0
+auth    required pam_unix.so
+account required pam_unix.so
+EOL
+
+sudo groupadd -f $VSFTPD_GROUP
+sudo useradd -d "$FTP_DIR" -s /usr/sbin/nologin -g $VSFTPD_GROUP $NEW_USER
+sudo mkdir -p "$FTP_DIR"
+sudo chown -R $NEW_USER:$VSFTPD_GROUP "$FTP_DIR"
+sudo chmod 755 "$FTP_DIR"
+sudo chown root:root $CONFIG_PATH
+sudo chmod 600 $CONFIG_PATH
+sudo usermod -d $FTP_DIR $NEW_USER
+echo "$NEW_USER:$FTP_PASS" | sudo chpasswd
+
+sudo systemctl enable --now ftp_$NEW_USER

@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Define paths and variables
+VENV_PATH="$HOME/.dl"
+SCRIPT="$HOME/.local/bin/pyload"
+SERV_FILE="/etc/systemd/system/pyload.service"
+
+# Determine package manager
+if command -v apt > /dev/null; then
+    PACKAGE_MANAGER="apt"
+	PY_VER="python3"
+elif command -v pacman > /dev/null; then
+    PACKAGE_MANAGER="pacman"
+	PY_VER="python"
+else
+    echo "Neither apt nor pacman is installed. Exiting."
+    exit 1
+fi
+
+# Install dependencies
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 libpq-dev
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs
+fi
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "$VENV_PATH" ]; then
+    "$PY_VER" -m venv "$VENV_PATH"
+fi
+
+# Activate virtual environment and install Synapse
+source "$VENV_PATH/bin/activate"
+"$VENV_PATH/bin/pip" install --upgrade pip
+"$VENV_PATH/bin/pip" install pyload-ng[all] beaker getch multipartposthandler safeeval bottle colorama jinja2 markupsafe pycurl setuptools thrift
+
+# Ensure necessary directories exist
+mkdir -p "$HOME/.local/bin"
+
+# Create the start script
+cat > "$SCRIPT" <<EOL
+#!/bin/bash
+source "$VENV_PATH/bin/activate"
+exec "$VENV_PATH/bin/python" -m pyload
+EOL
+chmod +x "$SCRIPT"
+
+sudo tee "$SERV_FILE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=$SCRIPT
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$SERV_FILE"

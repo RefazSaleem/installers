@@ -1,0 +1,48 @@
+#!/bin/bash
+
+DLD_DIR="/mnt/ftp/Downloads"
+CONF_PATH="$DLD_DIR/.config.json"
+SERV_FILE="/etc/systemd/system/cloud-torrent.service"
+PORT="13000"
+SERVER_IP="127.0.0.1"
+CADDY_CONF="/etc/caddy/Caddyfile"
+CADDY_CERTS="/var/lib/caddy/certs"
+TS_IP=$(tailscale ip -4)
+TS_HOST=$(tailscale status | grep $(tailscale ip -4) | awk '{print $2}')
+TS_DN=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+
+mkdir -p "$DLD_DIR"
+sudo chown $USER: "$DLD_DIR"
+
+curl https://i.jpillora.com/cloud-torrent! | bash
+sudo tee "$SERV_FILE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/cloud-torrent --host $SERVER_IP --port $PORT --config-path $CONF_PATH
+WorkingDirectory=$DLD_DIR
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+http://$TS_HOST:$((PORT - 10001)) {
+    reverse_proxy $SERVER_IP:$PORT
+}
+
+https://$TS_DN:$((PORT - 10000)) {
+    reverse_proxy $SERVER_IP:$PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl reload caddy
+sudo systemctl enable --now cloud-torrent

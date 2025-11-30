@@ -1,0 +1,204 @@
+#!/bin/bash
+
+FIREFLY_BASE_DIR="$HOME/.docker/ffiii"
+FIREFLY_CONF_DIR="$HOME/.config/ffiii"
+COMPOSE_FILE="$FIREFLY_BASE_DIR/docker-compose.yaml"
+FIREFLY_MEDIA_DIR="/mnt/data/ffiii"
+SERVER_IP="127.0.0.1"
+CADDY_CONF="/etc/caddy/Caddyfile"
+CADDY_CERTS="/var/lib/caddy/certs"
+FIREFLY_STRING=$(openssl rand -hex 32)
+FIREFLY_CHAR_CODE=$(openssl rand -hex 32)
+TS_IP=$(tailscale ip -4)
+TS_HOST=$(tailscale status | grep $(tailscale ip -4) | awk '{print $2}')
+TS_DN=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+FIREFLY_PORT="17080"
+ENV_FILE="$FIREFLY_BASE_DIR/.env"
+TIMEZONE="Asia/Dubai"
+DB_ENV_FILE="$FIREFLY_BASE_DIR/.db.env"
+mkdir -p "$FIREFLY_BASE_DIR"
+mkdir -p "$FIREFLY_CONF_DIR"
+sudo mkdir -p "$FIREFLY_MEDIA_DIR"
+sudo chown -R $USER: "$FIREFLY_MEDIA_DIR"
+
+cat > "$COMPOSE_FILE" << EOF
+services:
+  app:
+    image: fireflyiii/core:latest
+    hostname: app
+    container_name: firefly_iii_core
+    restart: always
+    volumes:
+      - $FIREFLY_MEDIA_DIR:/var/www/html/storage/upload
+    env_file: .env
+    networks:
+      - firefly_iii
+    ports:
+      - $FIREFLY_PORT:8080
+    depends_on:
+      - db
+  db:
+    image: mariadb:lts
+    hostname: db
+    container_name: firefly_iii_db
+    restart: always
+    env_file: .db.env
+    networks:
+      - firefly_iii
+    volumes:
+      - firefly_iii_db:$FIREFLY_MEDIA_DIR
+  cron:
+    image: alpine
+    restart: always
+    container_name: firefly_iii_cron
+    env_file: .env
+    command: sh -c "
+      apk add tzdata && \
+      (ln -s /usr/share/zoneinfo/$$TZ /etc/localtime || true) && \
+      echo \"0 3 * * * wget -qO- http://app:8080/api/v1/cron/$$STATIC_CRON_TOKEN;echo\"
+      | crontab - && \
+      crond -f -L /dev/stdout"
+    networks:
+      - firefly_iii
+    depends_on:
+      - app
+
+volumes:
+   firefly_iii_upload:
+   firefly_iii_db:
+
+networks:
+  firefly_iii:
+    driver: bridge
+EOF
+
+cat > "$ENV_FILE" << EOF
+APP_ENV=production
+APP_DEBUG=false
+SITE_OWNER=admin@firefly.home
+APP_KEY=$FIREFLY_STRING
+DEFAULT_LANGUAGE=en_US
+DEFAULT_LOCALE=equal
+TZ=$TIMEZONE
+TRUSTED_PROXIES=
+LOG_CHANNEL=stack
+APP_LOG_LEVEL=notice
+
+AUDIT_LOG_LEVEL=emergency
+AUDIT_LOG_CHANNEL=
+PAPERTRAIL_HOST=
+PAPERTRAIL_PORT=
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=firefly
+DB_USERNAME=firefly
+DB_PASSWORD=secret_firefly_password
+DB_SOCKET=
+MYSQL_USE_SSL=false
+MYSQL_SSL_VERIFY_SERVER_CERT=true
+MYSQL_SSL_CAPATH=/etc/ssl/certs/
+MYSQL_SSL_CA=
+MYSQL_SSL_CERT=
+MYSQL_SSL_KEY=
+MYSQL_SSL_CIPHER=
+PGSQL_SSL_MODE=prefer
+PGSQL_SSL_ROOT_CERT=null
+PGSQL_SSL_CERT=null
+PGSQL_SSL_KEY=null
+PGSQL_SSL_CRL_FILE=null
+PGSQL_SCHEMA=public
+CACHE_DRIVER=file
+SESSION_DRIVER=file
+REDIS_SCHEME=tcp
+REDIS_PATH=
+REDIS_HOST=$SERVER_IP
+REDIS_PORT=6379
+REDIS_USERNAME=
+REDIS_PASSWORD=
+REDIS_DB="0"
+REDIS_CACHE_DB="1"
+COOKIE_PATH="/"
+COOKIE_DOMAIN=
+COOKIE_SECURE=false
+COOKIE_SAMESITE=lax
+MAIL_MAILER=log
+MAIL_HOST=null
+MAIL_PORT=2525
+MAIL_FROM=firefly@firefly.home
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_ENCRYPTION=null
+MAIL_SENDMAIL_COMMAND=
+MAIL_ALLOW_SELF_SIGNED=false
+MAIL_VERIFY_PEER=true
+MAIL_VERIFY_PEER_NAME=true
+MAILGUN_DOMAIN=
+MAILGUN_SECRET=
+MAILGUN_ENDPOINT=api.mailgun.net
+MANDRILL_SECRET=
+SPARKPOST_SECRET=
+MAILERSEND_API_KEY=
+SEND_ERROR_MESSAGE=true
+SEND_REPORT_JOURNALS=true
+ENABLE_EXTERNAL_MAP=false
+ENABLE_EXCHANGE_RATES=false
+ENABLE_EXTERNAL_RATES=false
+MAP_DEFAULT_LAT=51.983333
+MAP_DEFAULT_LONG=5.916667
+MAP_DEFAULT_ZOOM=6
+VALID_URL_PROTOCOLS=
+AUTHENTICATION_GUARD=web
+AUTHENTICATION_GUARD_HEADER=REMOTE_USER
+AUTHENTICATION_GUARD_EMAIL=
+PASSPORT_PRIVATE_KEY=
+PASSPORT_PUBLIC_KEY=
+CUSTOM_LOGOUT_URL=
+DISABLE_FRAME_HEADER=false
+DISABLE_CSP_HEADER=false
+TRACKER_SITE_ID=
+TRACKER_URL=
+REPORT_ERRORS_ONLINE=false
+ALLOW_WEBHOOKS=false
+STATIC_CRON_TOKEN=$FIREFLY_CHAR_CODE
+DKR_CHECK_SQLITE=true
+APP_NAME=FireflyIII
+BROADCAST_DRIVER=log
+QUEUE_DRIVER=sync
+CACHE_PREFIX=firefly
+PUSHER_KEY=
+IPINFO_TOKEN=
+PUSHER_SECRET=
+PUSHER_ID=
+DEMO_USERNAME=
+DEMO_PASSWORD=
+USE_RUNNING_BALANCE=false
+FIREFLY_III_LAYOUT=v1
+QUERY_PARSER_IMPLEMENTATION=new
+APP_URL=http://$SERVER_IP
+EOF
+
+cat > "$DB_ENV_FILE" << EOF
+MYSQL_RANDOM_ROOT_PASSWORD=yes
+MYSQL_USER=firefly
+MYSQL_PASSWORD=secret_firefly_password
+MYSQL_DATABASE=firefly
+EOF
+
+
+cd "$FIREFLY_BASE_DIR"
+sudo docker compose up -d
+TAILSCALE_HOST=$(tailscale status | grep $(tailscale ip -4) | awk '{print $2}')
+
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+http://$TS_HOST:$((FIREFLY_PORT - 10001)) {
+    reverse_proxy $SERVER_IP:$FIREFLY_PORT
+}
+
+https://$TS_DN:$((FIREFLY_PORT - 10000)) {
+    reverse_proxy $SERVER_IP:$FIREFLY_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+EOF
+
+sudo systemctl restart caddy
