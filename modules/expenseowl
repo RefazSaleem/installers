@@ -1,0 +1,54 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y go
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm go
+fi
+
+EXPENSEOWL_DIR="/opt/expenseowl"
+EXPENSEOWL_SERVICE="$SERVICE_PATH/expenseowl.service"
+EXPENSEOWL_PORT="13080"
+
+cd "/opt"
+sudo git clone https://github.com/tanq16/expenseowl.git
+sudo chown -R $USER:$SERVER_GROUP "$EXPENSEOWL_DIR"
+cd "$EXPENSEOWL_DIR"
+chmod +x "$EXPENSEOWL_DIR/expenseowl"
+go build ./cmd/expenseowl
+
+cat <<EOF | sudo tee -a "$EXPENSEOWL_SERVICE" > /dev/null
+[Unit]
+Description=ExpenseOwl Service
+After=network.target
+
+[Service]
+ExecStart=$EXPENSEOWL_DIR/expenseowl --port $EXPENSEOWL_PORT
+WorkingDirectory=$EXPENSEOWL_DIR
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now expenseowl
+
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+http://$TS_HOST:$((EXPENSEOWL_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$EXPENSEOWL_PORT
+}
+
+https://$TS_DN:$((EXPENSEOWL_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$EXPENSEOWL_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+
+EOF
+
+sudo systemctl restart caddy

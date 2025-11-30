@@ -1,0 +1,44 @@
+#!/bin/bash
+
+source ./.variables
+
+sudo mkdir -p "$TORR_DLD_DIR"
+sudo chown -R $USER:$SERVER_GROUP "$TORR_DLD_DIR"
+sudo find "$TORR_DLD_DIR" -type f -exec chmod 660 {} \;
+sudo find "$TORR_DLD_DIR" -type d -exec chmod 770 {} \;
+
+curl https://i.jpillora.com/cloud-torrent! | bash
+sudo tee "$TORR_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/cloud-torrent --host $HOST_IP --port $TORR_PORT --config-path $TORR_CONF_PATH --title "Torrents Hub" --log --auth "$TORR_USER:$TORR_USER_PASS"
+WorkingDirectory=$TORR_DLD_DIR
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+http://$TS_HOST:$((TORR_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$TORR_PORT
+}
+
+https://$TS_DN:$((TORR_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$TORR_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl reload caddy
+sudo systemctl enable --now cloud-torrent
+
+
+echo "Cloud Torrent setup completed and is running as a system service."

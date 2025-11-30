@@ -1,0 +1,60 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 unzip wget
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap unzip wget
+fi
+
+if [ ! -d "$MASS_VENV_PATH" ]; then
+    $PYVER -m venv "$MASS_VENV_PATH"
+fi
+
+source "$MASS_VENV_PATH/bin/activate"
+"$MASS_VENV_PATH/bin/pip" install --upgrade pip
+"$MASS_VENV_PATH/bin/pip" install music-assistant
+
+mkdir -p "$MASS_SCRIPT_PATH"
+
+cat > "$MASS_SCRIPT_PATH/musicassist" <<EOL
+#!/bin/bash
+source "$MASS_VENV_PATH/bin/activate"
+exec mass
+EOL
+chmod +x "$MASS_SCRIPT_PATH/musicassist"
+mkdir -p "$MASS_CONFIG"
+
+sudo tee "$MASS_SERVICE" > /dev/null <<EOL
+[Unit]
+Description=Music Assistant
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=$MASS_SCRIPT_PATH/musicassist
+Restart=on-failure
+RestartSec=5s
+User=$USER
+Environment=$MASS_CONFIG
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+http://$TS_HOST:$((MASS_PORT + 999)) {
+    reverse_proxy $HOST_IP:$MASS_PORT
+}
+
+https://$TS_DN:$((MASS_PORT + 1000)) {
+    reverse_proxy $HOST_IP:$MASS_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now music-assistant

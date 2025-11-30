@@ -1,0 +1,36 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 libpq-dev coturn openssl libssl-dev curl
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm jellyfin-server jellyfin-web
+fi
+sudo systemctl enable --now jellyfin
+sudo mkdir -p "$JELLYFIN_DIR"
+sudo usermod -aG $SERVER_GROUP jellyfin
+sudo chown -R :$SERVER_GROUP "$JELLYFIN_DIR"
+sudo find "$JELLYFIN_DIR" -type f -exec chmod 660 {} \;
+sudo find "$JELLYFIN_DIR" -type d -exec chmod 770 {} \;
+
+cat <<EOF | sudo tee -a "$JELLYFIN_MEDIA_PERM_SCRIPT" > /dev/null
+#!/bin/bash
+sudo chown -R :$SERVER_GROUP $JELLYFIN_DIR
+sudo find "$JELLYFIN_DIR" -type f -exec chmod 660 {} \;
+sudo find "$JELLYFIN_DIR" -type d -exec chmod 770 {} \;
+EOF
+
+sudo chmod +x "$JELLYFIN_MEDIA_PERM_SCRIPT"
+
+cat <<EOF | sudo tee -a "$CADDY_CONF" > /dev/null
+http://$TS_HOST:$((JELLYFIN_PORT + 1)) {
+    reverse_proxy $HOST_IP:$JELLYFIN_PORT
+}
+
+https://$TS_DN:$((JELLYFIN_PORT + 2)) {
+    reverse_proxy $HOST_IP:$JELLYFIN_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+EOF
+sudo systemctl restart caddy
