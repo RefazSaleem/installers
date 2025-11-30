@@ -50,7 +50,7 @@ i=1
 for entry in "${MODULES[@]}"; do
 	SCRIPT="${entry##*:}"
 	for S in "${SELECTED[@]}"; do
-		[[ "$S" == "$i" ]] && bash "$SCRIPT"
+		[[ "$S" == "$i" ]] && chmod +x "$SCRIPT" && bash "$SCRIPT"
 	done
 	((i++))
 done
