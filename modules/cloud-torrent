@@ -1,0 +1,70 @@
+#!/bin/bash
+
+source ./.variables
+
+sudo mkdir -p "$TORR_DLD_DIR"
+sudo chown -R $USER:$SERVER_GROUP "$TORR_DLD_DIR"
+sudo find "$TORR_DLD_DIR" -type f -exec chmod 660 {} \;
+sudo find "$TORR_DLD_DIR" -type d -exec chmod 770 {} \;
+
+curl https://i.jpillora.com/cloud-torrent! | bash
+sudo tee "$TORR_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/cloud-torrent --host $HOST_IP --port $TORR_PORT --config-path $TORR_CONF_PATH --title "Torrents Hub" --log --auth "$TORR_USER:$TORR_USER_PASS"
+WorkingDirectory=$TORR_DLD_DIR
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$TORR_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((TORR_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$TORR_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((TORR_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$TORR_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $CADDY_SITES
+	sudo chmod -R 755 $CADDY_SITES
+	sudo systemctl reload caddy
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now cloud-torrent
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$TORR_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Torrents Hub
+        url: "https://$TS_DN:$((TORR_PORT - 10000))"
+        subtitle: Torrent Downloader
+        icon: "fas fa-cloud-download-alt"
+Unsecure
+      - name: Torrents Hub
+        url: "http://$TS_HOST:$((TORR_PORT - 10001))"
+        subtitle: Torrent Downloader
+        icon: "fas fa-cloud-download-alt"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+	sudo bash $HOMER_UPDATE_SCRIPT
+	sudo systemctl restart homer
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Cloud-Torrent service has been installed and configured successfully!"
