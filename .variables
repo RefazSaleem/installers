@@ -2,8 +2,8 @@
 
 #Common Variables
 HOST_IP="127.0.0.1"
-HOST_NAME="alpha"
-TS_AUTH_KEY="tskey-auth-ksTRsw5bqu11CNTRL-9vKgaeXycCi7jY8jYemzCiG2UwnArg67"
+HOST_NAME="$HOSTNAME"
+TS_AUTH_KEY="tskey-a..."
 CADDY_CONF="/etc/caddy/Caddyfile"
 CADDY_SITES="/etc/caddy/sites"
 CADDY_CERTS="/var/lib/caddy/certs"
