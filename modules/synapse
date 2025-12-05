@@ -134,7 +134,7 @@ sudo systemctl enable --now coturn matrix-synapse
 sudo systemctl reload caddy
 
 if [ -f "$HOMER_SERVICE" ]; then
-    sudo tee "$EXPENSEOWL_HOMER_BLOCK" > /dev/null <<EOF
+    sudo tee "$SYNAPSE_HOMER_BLOCK" > /dev/null <<EOF
 Secure
       - name: Matrix-Synapse
         url: "https://$TS_DN:$((SYNAPSE_PORT - 10000))"
