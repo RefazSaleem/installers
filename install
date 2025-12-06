@@ -9,6 +9,7 @@ MODULES=(
 	"ESPHome:modules/esphome-pip"
 	"ExpenseOwl:modules/expenseowl"
 	"FTP Server:modules/vsftpd"
+	"File Management UI:modules/sftpgo"
 	"Home Assistant:modules/hass-docker"
 	"Node-Red:modules/nodered"
 	"Immich:modules/immich-docker"
