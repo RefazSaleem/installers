@@ -58,3 +58,9 @@ for entry in "${MODULES[@]}"; do
 	done
 	((i++))
 done
+if [ -f "$HOMER_SERVICE" ]; then
+	sudo bash $HOMER_UPDATE_SCRIPT
+	sudo systemctl restart homer
+else
+    echo "Homer not installed — skipping"
+fi
