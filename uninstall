@@ -11,6 +11,7 @@ MODULES=(
     "ESPHome"
 	"ExpenseOwl"
     "FTP Server"
+	"File Management UI"
 	"Node-red"
     "Home Assistant"
     "Immich"
@@ -35,6 +36,11 @@ HOMER_SERVICES=(homer.service)
 JELLYFIN_FOLDERS=($JELLYFIN_DIR)
 JELLYFIN_FILES=($JELLYFIN_MEDIA_PERM_SCRIPT $JELLYFIN_CADDY_CONF $JELLYFIN_HOMER_BLOCK)
 JELLYFIN_SERVICES=(jellyfin)
+
+# SFTPGo
+SFTPGO_FOLDERS=($SFTPGO_DIR)
+SFTPGO_FILES=($SFTPGO_SERVICE $SFTPGO_HOMER_BLOCK $SFTPGO_CADDY_CONF)
+SFTPGO_SERVICES=(sftpgo.service)
 
 # Beszel Hub
 BESZELHUB_FOLDERS=($BESZELHUB_PATH)
@@ -111,6 +117,7 @@ declare -A MODULE_CHECKS=(
     ["ESPHome"]="$ESPHOME_BASE_DIR $ESPHOME_SERVICE"
     ["ExpenseOwl"]="$EXPENSEOWL_SERVICE"
     ["FTP Server"]="$FTP_SERVICE_PATH"
+	["File Management"]="$SFTPGO_SERVICE"
 	["Node-red"]="$NODE_RED_SERVICE"
     ["Home Assistant"]="$HASS_BASE_DIR $HASS_COMPOSE_FILE"
     ["Immich"]="$IMMICH_BASE_DIR"
@@ -138,6 +145,7 @@ declare -A MODULE_SERVICES=(
     ["ESPHome"]="${ESPHOME_SERVICES[*]}"
     ["ExpenseOwl"]="${EXPENSEOWL_SERVICES[*]}"
     ["FTP Server"]="${VSFTPD_SERVICES[*]}"
+    ["File Management"]="${SFTPGO_SERVICES[*]}"
 	["Node-red"]="${NODE_RED_SERVICES[*]}"
     ["Home Assistant"]=""
     ["Immich"]=""
