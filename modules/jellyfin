@@ -56,8 +56,6 @@ Unsecure
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
-	sudo bash $HOMER_UPDATE_SCRIPT
-	sudo systemctl restart homer
 else
     echo "Homer not installed — skipping"
 fi
