@@ -9,8 +9,8 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
 	sudo mkdir -p /usr/share/keyrings
 	curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.noarmor.gpg"|sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
 	curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.tailscale-keyring.list"|sudo tee /etc/apt/sources.list.d/tailscale.list
-	sudo apt-get update
-	sudo apt-get install -y tailscale caddy jq nodejs npm
+	sudo apt update
+	sudo apt install -y tailscale caddy jq nodejs npm
 	sudo systemctl enable --now tailscaled
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm tailscale caddy jq nodejs npm
