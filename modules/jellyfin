@@ -9,11 +9,11 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
 	curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key|sudo gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg
 	sudo chmod 644 /etc/apt/keyrings/jellyfin.gpg
 	sudo tee /etc/apt/sources.list.d/jellyfin.sources<<EOF
-"Types: deb
+Types: deb
 URIs: https://repo.jellyfin.org/debian
 Suites: ${CODENAME}
 Components: main
-Signed-By: /etc/apt/keyrings/jellyfin.gpg"
+Signed-By: /etc/apt/keyrings/jellyfin.gpg
 EOF
 	sudo apt-get update
 	sudo apt-get install -y jellyfin ffmpeg
