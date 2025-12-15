@@ -2,10 +2,18 @@
 source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
-    sudo apt update
-    sudo apt install -y yarn corepack git tailscale caddy jq nodejs npm
+    sudo apt-get update
+	sudo apt-get install -y curl ca-certificates gnupg
+	. /etc/os-release
+	CODENAME="$VERSION_CODENAME"
+	sudo mkdir -p /usr/share/keyrings
+	curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.noarmor.gpg"|sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+	curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.tailscale-keyring.list"|sudo tee /etc/apt/sources.list.d/tailscale.list
+	sudo apt-get update
+	sudo apt-get install -y tailscale
+	sudo systemctl enable --now tailscaled
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm yarn corepack git tailscale caddy jq nodejs npm
+    sudo pacman -Syu --noconfirm tailscale caddy jq nodejs npm
 fi
 
 sudo systemctl enable --now {tailscaled,caddy}
