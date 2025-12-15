@@ -2,8 +2,19 @@
 source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
-    sudo apt update
-    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 libpq-dev coturn openssl libssl-dev curl
+	sudo apt-get update
+	sudo apt-get install -y curl ca-certificates gnupg
+	CODENAME="trixie"
+	sudo mkdir -p /etc/apt/keyrings
+	curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key|sudo gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg
+	sudo chmod 644 /etc/apt/keyrings/jellyfin.gpg
+	echo "Types: deb
+	URIs: https://repo.jellyfin.org/debian
+	Suites: ${CODENAME}
+	Components: main
+	Signed-By: /etc/apt/keyrings/jellyfin.gpg"|sudo tee /etc/apt/sources.list.d/jellyfin.sources >/dev/null
+	sudo apt-get update
+	sudo apt-get install -y jellyfin ffmpeg
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm jellyfin-server jellyfin-web
 fi
