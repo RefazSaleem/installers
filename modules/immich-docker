@@ -113,9 +113,26 @@ volumes:
   model-cache:
 EOF
 
-grep -qxF "#immich" /etc/fstab || echo "#immich" | sudo tee -a /etc/fstab > /dev/null
-FSTAB_ENTRY="$PHOTOS_HDD_STORE $IMMICH_STORAGE_DIR none bind 0 0"
-grep -qxF "$FSTAB_ENTRY" /etc/fstab || echo "$FSTAB_ENTRY" | sudo tee -a /etc/fstab > /dev/null
+cat <<EOF | sudo tee "$IMMICH_MOUNT_SERVICE" > /dev/null
+[Unit]
+Description=Immich storage bind mount
+After=local-fs.target
+RequiresMountsFor=$PHOTOS_HDD_STORE
+
+[Mount]
+What=$PHOTOS_HDD_STORE
+Where=$IMMICH_STORAGE_DIR
+Type=none
+Options=bind
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo chmod -R 777 $PHOTOS_HDD_STORE
+#grep -qxF "#immich" /etc/fstab || echo "#immich" | sudo tee -a /etc/fstab > /dev/null
+#FSTAB_ENTRY="$PHOTOS_HDD_STORE $IMMICH_STORAGE_DIR none bind 0 0"
+#grep -qxF "$FSTAB_ENTRY" /etc/fstab || echo "$FSTAB_ENTRY" | sudo tee -a /etc/fstab > /dev/null
 
 cd "$IMMICH_BASE_DIR"
 sudo docker compose up -d
@@ -157,4 +174,5 @@ EOF
 else
     echo "Homer not installed — skipping"
 fi
+sudo systemctl enable --now $IMMICH_MOUNT_SERVICE
 echo "Immich service has been installed and configured successfully!"
