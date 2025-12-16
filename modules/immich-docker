@@ -117,11 +117,10 @@ cat <<EOF | sudo tee "$IMMICH_MOUNT_SERVICE" > /dev/null
 [Unit]
 Description=Immich storage bind mount
 After=local-fs.target
-RequiresMountsFor=$PHOTOS_HDD_STORE
 
 [Mount]
-What=$PHOTOS_HDD_STORE
-Where=$IMMICH_STORAGE_DIR
+What=$IMMICH_STORAGE_DIR
+Where=$PHOTOS_HDD_STORE
 Type=none
 Options=bind
 
