@@ -10,7 +10,6 @@ CADDY_CERTS="/var/lib/caddy/certs"
 TS_HOST="$HOST_NAME"
 TS_IP=$(tailscale ip -4)
 TS_DN=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-MACHINE=$(hostname)
 SERVER_GROUP="homelab"
 SERVICE_PATH="/etc/systemd/system"
 VENV_PATHS="$HOME/.venv"
