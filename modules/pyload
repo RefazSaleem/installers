@@ -7,7 +7,7 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 libpq-dev
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm
-    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs wget unzip
 fi
 
 if [ ! -d "$PYLOAD_VENV_PATH" ]; then
