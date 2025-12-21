@@ -5,7 +5,7 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
     sudo apt install -y tar
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm tar
+    sudo pacman -Syu --noconfirm tar wget unzip
 fi
 
 sudo mkdir -p "$SFTPGO_DIR"
