@@ -311,6 +311,7 @@ for NAME in "${MODULES[@]}"; do
                     FOLDERS_TO_REMOVE["$NAME"]="${RADICALE_FOLDERS[*]}"
                     FILES_TO_REMOVE["$NAME"]="${RADICALE_FILES[*]}"
 				"BudgetBee")
+					;;
                     FOLDERS_TO_REMOVE["$NAME"]="${BUDGETBEE_FOLDERS[*]}"
                     FILES_TO_REMOVE["$NAME"]="${BUDGETBEE_FILES[*]}"
                     ;;
