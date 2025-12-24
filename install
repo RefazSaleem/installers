@@ -27,6 +27,7 @@ MODULES=(
 	"Paperless-ngx:modules/paperless-docker"
 	"PlatformIO:modules/platformio"
 	"pyLoad:modules/pyload"
+	"Radicale:modules/radicale"
 	"Torrent Hub:modules/cloud-torrent"
 )
 
