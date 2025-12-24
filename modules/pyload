@@ -78,7 +78,7 @@ sudo systemctl restart pyload
 sed -i "s#^\([[:space:]]*int port : \"Port\" =\).*#\1 $PYLOAD_PORT#" "$PYLOAD_STG_CONF"
 sed -i "s#^\([[:space:]]*ip host : \"IP address\" =\).*#\1 $HOST_IP#" "$PYLOAD_STG_CONF"
 sed -i "s#^\([[:space:]]*folder storage_folder : \"Download folder\" =\).*#\1 $PYLOAD_DLD_DIR#" "$PYLOAD_STG_CONF"
-sed -i "s#^\([[:space:]]*Default;modern;pyplex theme : \"Theme\" =\).*#\1 pyplex#" "$PYLOAD_STG_CONF"
+sed -i 's#^[[:space:]]*modern;pyplex theme : "Theme" =.*#modern;pyplex theme : "Theme" = pyplex#' "$PYLOAD_STG_CONF"
 
 sudo systemctl restart pyload
 
