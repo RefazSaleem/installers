@@ -22,6 +22,7 @@ MODULES=(
     "Paperless-ngx"
 	"PlatformIO"
     "pyLoad"
+	"Radicale"
 )
 
 # Caddy & Tailscale
@@ -101,6 +102,11 @@ PYLOAD_FOLDERS=($PYLOAD_VENV_PATH $PYLOAD_CONF_DIR)
 PYLOAD_FILES=($PYLOAD_START_SCRIPT $PYLOAD_SERVICE $PYLOAD_HOMER_BLOCK $PYLOAD_CADDY_CONF)
 PYLOAD_SERVICES=(pyload.service)
 
+# Radicale
+RADICALE_FOLDERS=($RADICALE_VENV_PATH $RADICALE_CONFIG_PATH $RADICALE_STORE_PATH)
+RADICALE_FILES=($RADICALE_START_SCRIPT $RADICALE_SERVICE $RADICALE_HOMER_BLOCK $RADICALE_CADDY_CONF $RADICALE_SIGNUP_SCRIPT $RADICALE_START_SCRIPT)
+RADICALE_SERVICES=(radicale.service)
+
 # PlatformIO
 PIO_FOLDERS=($PIO_VENV_PATH)
 PIO_FILES=($PIO_START_SCRIPT $PIO_SERVICE $PIO_HOMER_BLOCK $PIO_CADDY_CONF)
@@ -141,6 +147,7 @@ declare -A MODULE_CHECKS=(
     ["Music Assistant"]="$MASS_START_SCRIPT"
     ["Paperless-ngx"]="$PNGX_BASE_DIR"
     ["pyLoad"]="$PYLOAD_SERVICE"
+    ["Radicale"]="$RADICALE_SERVICE"
 )
 
 declare -A DOCKER_APPS=(
@@ -170,6 +177,7 @@ declare -A MODULE_SERVICES=(
     ["Music Assistant"]="${MASS_SERVICES[*]}"
     ["Paperless-ngx"]=""
     ["pyLoad"]="${PYLOAD_SERVICES[*]}"
+    ["Radicale"]="${RADICALE_SERVICES[*]}"
     ["BudgetBee"]=""
 )
 
@@ -299,6 +307,9 @@ for NAME in "${MODULES[@]}"; do
                     FOLDERS_TO_REMOVE["$NAME"]="${SFTPGO_FOLDERS[*]}"
                     FILES_TO_REMOVE["$NAME"]="${SFTPGO_FILES[*]}"
                     ;;
+				"Radicale")
+                    FOLDERS_TO_REMOVE["$NAME"]="${RADICALE_FOLDERS[*]}"
+                    FILES_TO_REMOVE["$NAME"]="${RADICALE_FILES[*]}"
 				"BudgetBee")
                     FOLDERS_TO_REMOVE["$NAME"]="${BUDGETBEE_FOLDERS[*]}"
                     FILES_TO_REMOVE["$NAME"]="${BUDGETBEE_FILES[*]}"
