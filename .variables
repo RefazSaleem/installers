@@ -56,7 +56,8 @@ BUDGETBEE_HOMER_BLOCK="$HOMER_MODULES_DIR/budgetbee.hmr"
 
 #Cloud-Torrent Variables
 TORR_DLD_DIR="/mnt/ftp/Downloads"
-TORR_CONF_PATH="$TORR_DLD_DIR/.config.json"
+TORR_CLD_PATH="/opt/torrent-hub"
+TORR_CONF_PATH="$TORR_CLD_PATH/.config.json"
 TORR_SERVICE="$SERVICE_PATH/cloud-torrent.service"
 TORR_PORT="13000"
 TORR_USER="torrent"
