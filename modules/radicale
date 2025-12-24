@@ -16,7 +16,7 @@ source "$RADICALE_VENV_PATH/bin/activate"
 pip install --upgrade pip
 pip install radicale bcrypt
 
-mkdir -p "$USER_SCRIPT_PATH" "$RADICALE_CONFIG_PATH" "$RADICALE_STORE_PATH" "$RADICALE_CONFIG_PATH/users"
+mkdir -p "$USER_SCRIPT_PATH" "$RADICALE_CONFIG_PATH" "$RADICALE_STORE_PATH"
 
 cat > "$RADICALE_START_SCRIPT" <<EOL
 #!/bin/bash
