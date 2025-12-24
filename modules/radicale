@@ -108,13 +108,13 @@ if [ -f "$HOMER_SERVICE" ]; then
 Secure
       - name: Radicale
         url: "https://$TS_DN:$((RADICALE_PORT - 10000))"
-        subtitle: Check
-        icon: "fas fa-calendar"
+        subtitle: Calendar, Journal & Tasks
+        icon: "fas fa-calendar-alt"
 Unsecure
       - name: Radicale
         url: "http://$TS_HOST:$((RADICALE_PORT - 10001))"
-        subtitle: Check
-        icon: "fas fa-calendar"
+        subtitle: Calendar, Journal & Tasks
+        icon: "fas fa-calendar-alt"
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
