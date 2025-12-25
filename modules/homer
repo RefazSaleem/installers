@@ -4,9 +4,9 @@ source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
-    sudo apt install -y python3 unzip
+    sudo apt install -y python3 unzip python3.13-dev 
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm unzip
+    sudo pacman -Syu --noconfirm unzip python
 fi
 
 sudo mkdir -p "$HOMER_DIR"
