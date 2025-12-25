@@ -4,7 +4,7 @@ source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
-    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg
+    sudo apt install -y python3 python3-pip python3.13-dev python3-venv build-essential ffmpeg
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm python python-pip python-virtualenv base-devel ffmpeg
 fi
