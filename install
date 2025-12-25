@@ -5,7 +5,7 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
     sudo apt install -y python3 whiptail
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm whiptail
+    sudo pacman -Syu --noconfirm libnewt
 fi
 
 MODULES=(
