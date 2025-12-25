@@ -29,6 +29,7 @@ MODULES=(
 	"pyLoad:modules/pyload"
 	"Radicale:modules/radicale"
 	"Torrent Hub:modules/cloud-torrent"
+	"Vault Warden:modules/vaultwarden"
 )
 
 WT_LIST=()
