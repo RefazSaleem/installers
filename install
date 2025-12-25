@@ -3,9 +3,10 @@ source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
+	sudo apt upgrade
     sudo apt install -y python3 whiptail
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm libnewt
+    sudo pacman -Syu --noconfirm python libnewt
 fi
 
 MODULES=(
