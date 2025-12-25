@@ -4,7 +4,7 @@ source ./.variables
 
 MODULES=(
 	"Homer Dashboard"
-	"Tailscale with Caddy"
+	"Tailscale & Caddy"
 	"Beszel Hub"
 	"BudgetBee"
 	"Cloud Torrent"
@@ -134,7 +134,7 @@ VSFTPD_FILES=($FTP_PAM_FILE $FTP_CONFIG_PATH $FTP_SERVICE_PATH)
 VSFTPD_SERVICES=(ftp_$NEW_USER.service)
 
 declare -A MODULE_CHECKS=(
-	["Tailscale with Caddy"]="$CADDY_CONF $CADDY_CERTS"
+	["Tailscale & Caddy"]="$CADDY_CONF $CADDY_CERTS"
 	["Homer Dashboard"]="$HOMER_SERVICE"
 	["Beszel Hub"]="$BESZELHUB_PATH"
 	["BudgetBee"]="$BUDGETBEE_BASE_DIR"
@@ -167,7 +167,7 @@ declare -A DOCKER_APPS=(
 )
 
 declare -A MODULE_SERVICES=(
-	["Tailscale with Caddy"]="${CADDY_SERVICES[*]}"
+	["Tailscale & Caddy"]="${CADDY_SERVICES[*]}"
 	["Homer Dashboard"]="${HOMER_SERVICES[*]}"
 	["Beszel Hub"]="${BESZELHUB_SERVICES[*]}"
 	["BudgetBee"]=""
@@ -244,7 +244,7 @@ for NAME in "${MODULES[@]}"; do
 				SERVICES["$NAME"]="${MODULE_SERVICES[$NAME]}"
 			fi
 			case "$NAME" in
-				"Tailscale with Caddy")
+				"Tailscale & Caddy")
 					FOLDERS_TO_REMOVE["$NAME"]="${CADDY_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${CADDY_FILES[*]}"
 					;;
