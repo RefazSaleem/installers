@@ -65,7 +65,6 @@ http://$TS_HOST:$((BESZELHUB_PORT - 10001)) {
 EOF
 	sudo chown -R caddy:caddy $CADDY_SITES
 	sudo chmod -R 755 $CADDY_SITES
-    sudo systemctl restart caddy
 else
     echo "Caddy not installed — skipping"
 fi
