@@ -70,6 +70,11 @@ for entry in "${MODULES[@]}"; do
 	done
 	((i++))
 done
+if command -v caddy >/dev/null 2>&1; then
+	sudo chown -R caddy:caddy $CADDY_SITES
+	sudo chmod -R 755 $CADDY_SITES
+	sudo systemctl restart caddy
+fi
 if [ -f "$HOMER_SERVICE" ]; then
 	sudo bash $HOMER_UPDATE_SCRIPT
 	sudo systemctl restart homer
