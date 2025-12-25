@@ -13,10 +13,9 @@ MODULES=(
 	"Homer Dashboard:modules/homer"
 	"Beszel Hub:modules/beszelhub"
 	"BudgetBee:modules/budgetbee-docker"
+	"Cloud Torrent:modules/cloud-torrent"
 	"ESPHome:modules/esphome-pip"
 	"ExpenseOwl:modules/expenseowl"
-	"FTP Server:modules/vsftpd"
-	"File Management UI:modules/sftpgo"
 	"Grocy:modules/grocy"
 	"Home Assistant:modules/hass-docker"
 	"Immich:modules/immich-docker"
@@ -28,8 +27,9 @@ MODULES=(
 	"PlatformIO:modules/platformio"
 	"pyLoad:modules/pyload"
 	"Radicale:modules/radicale"
-	"Torrent Hub:modules/cloud-torrent"
+	"SFTPGo Server:modules/sftpgo"
 	"Vault Warden:modules/vaultwarden"
+	"vsftpd Server:modules/vsftpd"
 )
 
 WT_LIST=()
