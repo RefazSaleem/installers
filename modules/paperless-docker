@@ -1,0 +1,140 @@
+#!/bin/sh
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    VERSION="trixie"
+    sudo apt install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: "$VERSION"
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm docker docker-compose
+fi
+
+sudo systemctl enable --now docker
+
+mkdir -p "$PNGX_BASE_DIR"
+mkdir -p "$PNGX_CONF_DIR"
+sudo mkdir -p "$PNGX_MEDIA_DIR"
+
+cat > "$PNGX_COMPOSE_FILE" << EOF
+services:
+  broker:
+    image: docker.io/library/redis:8
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+  db:
+    image: docker.io/library/postgres:15
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+      - gotenberg
+      - tika
+    ports:
+      - "$PNGX_PORT:8000"
+    volumes:
+      - data:/usr/src/paperless/data
+      - media:/usr/src/paperless/media
+      - $PNGX_MEDIA_DIR/export:/usr/src/paperless/export
+      - $PNGX_MEDIA_DIR/consume:/usr/src/paperless/consume
+    env_file: docker-compose.env
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+  gotenberg:
+    image: docker.io/gotenberg/gotenberg:8.25
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+  tika:
+    image: docker.io/apache/tika:latest
+    restart: unless-stopped
+volumes:
+  data:
+  media:
+  pgdata:
+  redisdata:
+EOF
+
+cat > "$PNGX_ENV_FILE" << EOF
+COMPOSE_PROJECT_NAME=paperless
+EOF
+
+cat > "$PNGX_COMPOSE_ENV_FILE" << EOF
+#USERMAP_UID=1000
+#USERMAP_GID=1000
+#PAPERLESS_URL=https://paperless.example.com
+#PAPERLESS_SECRET_KEY=change-me
+#PAPERLESS_TIME_ZONE=America/Los_Angeles
+#PAPERLESS_OCR_LANGUAGE=eng
+#PAPERLESS_OCR_LANGUAGES=tur ces
+EOF
+
+
+cd "$PNGX_BASE_DIR"
+sudo docker compose up -d
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$PNGX_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((PNGX_PORT - 10000)) {
+    reverse_proxy $SERVER_IP:$PNGX_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((PNGX_PORT - 10001)) {
+    reverse_proxy $SERVER_IP:$PNGX_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $PNGX_CADDY_CONF
+	sudo chmod -R 755 $PNGX_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$PNGX_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Paperless
+        url: "https://$TS_DN:$((PNGX_PORT - 10000))"
+        subtitle: Document Manager
+        icon: "fas fa-file-alt"
+Unsecure
+      - name: Paperless
+        url: "http://$TS_HOST:$((PNGX_PORT - 10001))"
+        subtitle: Document Manager
+        icon: "fas fa-file-alt"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Paperless-ngx service has been installed and configured successfully!"

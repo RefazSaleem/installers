@@ -1,0 +1,76 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+	sudo apt-get update
+	sudo apt-get install -y curl ca-certificates gnupg
+	CODENAME="trixie"
+	sudo mkdir -p /etc/apt/keyrings
+	curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key|sudo gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg
+	sudo chmod 644 /etc/apt/keyrings/jellyfin.gpg
+	sudo tee /etc/apt/sources.list.d/jellyfin.sources<<EOF
+Types: deb
+URIs: https://repo.jellyfin.org/debian
+Suites: ${CODENAME}
+Components: main
+Signed-By: /etc/apt/keyrings/jellyfin.gpg
+EOF
+	sudo apt-get update
+	sudo apt-get install -y jellyfin ffmpeg
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm jellyfin-server jellyfin-web
+fi
+sudo systemctl enable --now jellyfin
+sudo mkdir -p "$JELLYFIN_DIR"
+sudo usermod -aG $SERVER_GROUP jellyfin
+sudo chown -R :$SERVER_GROUP "$JELLYFIN_DIR"
+sudo find "$JELLYFIN_DIR" -type f -exec chmod 660 {} \;
+sudo find "$JELLYFIN_DIR" -type d -exec chmod 770 {} \;
+
+cat <<EOF | sudo tee "$JELLYFIN_MEDIA_PERM_SCRIPT" > /dev/null
+#!/bin/bash
+sudo chown -R :$SERVER_GROUP $JELLYFIN_DIR
+sudo find "$JELLYFIN_DIR" -type f -exec chmod 660 {} \;
+sudo find "$JELLYFIN_DIR" -type d -exec chmod 770 {} \;
+EOF
+
+sudo chmod +x "$JELLYFIN_MEDIA_PERM_SCRIPT"
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$JELLYFIN_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((JELLYFIN_PORT + 327)) {
+    reverse_proxy $HOST_IP:$JELLYFIN_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((JELLYFIN_PORT + 326)) {
+    reverse_proxy $HOST_IP:$JELLYFIN_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $JELLYFIN_CADDY_CONF
+	sudo chmod -R 755 $JELLYFIN_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$JELLYFIN_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Jellyfin
+        url: "https://$TS_DN:$((JELLYFIN_PORT + 327))"
+        subtitle: Media Server
+        icon: "fas fa-tv"
+Unsecure
+      - name: Jellyfin
+        url: "http://$TS_HOST:$((JELLYFIN_PORT + 326))"
+        subtitle: Media Server
+        icon: "fas fa-tv"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Jellyfin service has been installed and configured successfully!"

@@ -1,0 +1,93 @@
+#!/bin/sh
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    VERSION="trixie"
+    sudo apt install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: "$VERSION"
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm docker docker-compose
+fi
+
+sudo systemctl enable --now docker
+mkdir -p "$HASS_BASE_DIR"
+mkdir -p "$HASS_CONF_DIR"
+
+cat > "$HASS_COMPOSE_FILE" << EOF
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - $HASS_CONF_DIR:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: bridge
+    ports:
+      - "$HASS_PORT:8123"
+EOF
+
+cd "$HASS_BASE_DIR"
+sudo docker compose up -d
+PROXY_RANGE=$(sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' homeassistant | awk -F. '{print $1"."$2".0.0/16"}')
+
+cat <<EOF | sudo tee -a "$HASS_CONF_DIR/configuration.yaml" > /dev/null
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - $PROXY_RANGE
+
+EOF
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$HASS_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((HASS_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$HASS_PORT
+    encode gzip
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((HASS_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$HASS_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $HASS_CADDY_CONF
+	sudo chmod -R 755 $HASS_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$HASS_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Home Assistant
+        url: "https://$TS_DN:$((HASS_PORT - 10000))"
+        subtitle: Home Automation
+        icon: "fas fa-home"
+Unsecure
+      - name: Home Assistant
+        url: "http://$TS_HOST:$((HASS_PORT - 10001))"
+        subtitle: Home Automation
+        icon: "fas fa-home"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Home Assistant service has been installed and configured successfully!"
