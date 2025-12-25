@@ -29,7 +29,7 @@ MODULES=(
 	"Radicale:modules/radicale"
 	"SFTPGo Server:modules/sftpgo"
 	"Vault Warden:modules/vaultwarden"
-	"vsftpd Server:modules/vsftpd"
+	"vsftpd:modules/vsftpd"
 )
 
 WT_LIST=()
