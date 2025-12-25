@@ -365,6 +365,12 @@ for APP in "${!SERVICES[@]}"; do
     done
 done
 
+mkdir -p $BACKUP_DIR
+sudo cp -r $CADDY_SITES $BACKUP_DIR
+sudo cp -r $CADDY_CERTS $BACKUP_DIR
+sudo cp -r $HOMER_MODULES_DIR $BACKUP_DIR
+sudo chown -R $USER: $BACKUP_DIR
+
 for APP in "${!FOLDERS_TO_REMOVE[@]}"; do
     for FOLDER in ${FOLDERS_TO_REMOVE[$APP]}; do
         if [[ -d "$FOLDER" ]]; then
