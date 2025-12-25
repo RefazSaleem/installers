@@ -9,7 +9,7 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
 fi
 
 MODULES=(
-	"Tailscale with Caddy:modules/tailscale_caddy"
+	"Tailscale & Caddy:modules/tailscale_caddy"
 	"Homer Dashboard:modules/homer"
 	"Beszel Hub:modules/beszelhub"
 	"BudgetBee:modules/budgetbee-docker"
