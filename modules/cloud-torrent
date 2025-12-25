@@ -1,0 +1,89 @@
+#!/bin/bash
+
+source ./.variables
+
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y gzip
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm gzip
+fi
+
+arch="$(uname -m)"
+cloud_torr_version="0.9.4"
+case "$arch" in
+  x86_64) arch="amd64" ;;
+  i386|i686) arch="386" ;;
+  aarch64) arch="arm64" ;;
+  armv6l) arch="armv6" ;;
+  *) echo "Unsupported architecture: $arch"; exit 1 ;;
+esac
+
+wget "https://github.com/jpillora/cloud-torrent/releases/download/v$cloud_torr_version/cloud-torrent_${cloud_torr_version}_linux_${arch}.gz" -O /tmp/cloud-torrent.gz
+sudo mkdir -p "$TORR_CLD_PATH" "$TORR_DLD_DIR"
+sudo gunzip -c /tmp/cloud-torrent.gz | sudo tee "$TORR_CLD_PATH/cloud-torrent" > /dev/null
+sudo chmod +x "$TORR_CLD_PATH/cloud-torrent"
+sudo rm /tmp/cloud-torrent.gz
+sudo chown -R "$USER:" "$TORR_DLD_DIR" "$TORR_CLD_PATH"
+sudo chown -R $USER:$SERVER_GROUP "$TORR_DLD_DIR"
+sudo find "$TORR_DLD_DIR" -type f -exec chmod 660 {} \;
+sudo find "$TORR_DLD_DIR" -type d -exec chmod 770 {} \;
+
+sudo tee "$TORR_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=$TORR_CLD_PATH/cloud-torrent --host $HOST_IP --port $TORR_PORT --config-path $TORR_CONF_PATH --title "Torrents Hub" --log --auth "$TORR_USER:$TORR_USER_PASS"
+WorkingDirectory=$TORR_DLD_DIR
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$TORR_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((TORR_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$TORR_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((TORR_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$TORR_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $TORR_CADDY_CONF
+	sudo chmod -R 755 $TORR_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now cloud-torrent
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$TORR_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Torrents Hub
+        url: "https://$TS_DN:$((TORR_PORT - 10000))"
+        subtitle: Torrent Downloader
+        icon: "fas fa-cloud-download-alt"
+Unsecure
+      - name: Torrents Hub
+        url: "http://$TS_HOST:$((TORR_PORT - 10001))"
+        subtitle: Torrent Downloader
+        icon: "fas fa-cloud-download-alt"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Cloud-Torrent service has been installed and configured successfully!"

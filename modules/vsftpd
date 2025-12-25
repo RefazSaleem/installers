@@ -1,0 +1,63 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y vsftpd
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -S --noconfirm vsftpd
+fi
+
+sudo bash -c "cat > $FTP_CONFIG_PATH" <<EOL
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+dirmessage_enable=YES
+xferlog_enable=YES
+connect_from_port_20=YES
+use_localtime=YES
+chown_uploads=YES
+chroot_local_user=YES
+listen=YES
+pam_service_name=$NEW_USER
+allow_writeable_chroot=YES
+local_root=$FTP_DIR
+listen_port=$FTP_PORT
+EOL
+
+sudo bash -c "cat > $FTP_SERVICE_PATH" <<EOL
+[Unit]
+Description=vsftpd for $NEW_USER
+After=network-online.target
+
+[Service]
+ExecStart=$(which vsftpd) $FTP_CONFIG_PATH
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+sudo bash -c "cat > $FTP_PAM_FILE" <<EOL
+#%PAM-1.0
+auth    required pam_unix.so
+account required pam_unix.so
+EOL
+
+sudo groupadd -f $FTPD_GROUP
+sudo useradd -d "$FTP_DIR" -s /usr/sbin/nologin -g $FTPD_GROUP $NEW_USER
+sudo mkdir -p "$FTP_DIR"
+sudo chown -R $NEW_USER:$FTPD_GROUP "$FTP_DIR"
+sudo chmod 755 "$FTP_DIR"
+sudo chown root:root $FTP_CONFIG_PATH
+sudo chmod 600 $FTP_CONFIG_PATH
+sudo usermod -d $FTP_DIR $NEW_USER
+echo "$NEW_USER:$FTP_PASS" | sudo chpasswd
+
+sudo systemctl enable --now ftp_$NEW_USER
+
+echo "vsftpd service has been installed and configured successfully!"
