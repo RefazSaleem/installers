@@ -21,7 +21,7 @@ Description=Homer Dashboard
 After=network.target
 
 [Service]
-ExecStart=python -m http.server $HOMER_PORT -d $HOMER_DIR
+ExecStart=$PYVER -m http.server $HOMER_PORT -d $HOMER_DIR
 WorkingDirectory=$HOMER_DIR
 User=$USER
 Restart=always
