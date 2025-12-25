@@ -23,6 +23,7 @@ MODULES=(
 	"PlatformIO"
     "pyLoad"
 	"Radicale"
+	"VaultWarden"
 )
 
 # Caddy & Tailscale
@@ -127,6 +128,11 @@ BUDGETBEE_FOLDERS=($BUDGETBEE_BASE_DIR $BUDGETBEE_CONF_DIR)
 BUDGETBEE_FILES=($BUDGETBEE_COMPOSE_FILE $BUDGETBEE_ENV_FILE $BUDGETBEE_SIGNUP $BUDGETBEE_HOMER_BLOCK $BUDGETBEE_CADDY_CONF)
 BUDGETBEE_DOCKER=$BUDGETBEE_BASE_DIR
 
+# VaultWarden
+VAULTWARDEN_FOLDERS=($VAULTWARDEN_BASE_DIR $VAULTWARDEN_DATA_DIR)
+VAULTWARDEN_FILES=($VAULTWARDEN_COMPOSE_FILE $VAULTWARDEN_HOMER_BLOCK $VAULTWARDEN_CADDY_CONF)
+VAULTWARDEN_DOCKER=$VAULTWARDEN_BASE_DIR
+
 declare -A MODULE_CHECKS=(
     ["Caddy+Tailscale"]="$CADDY_CONF $CADDY_CERTS"
     ["Homer"]="$HOMER_SERVICE"
@@ -148,6 +154,7 @@ declare -A MODULE_CHECKS=(
     ["Paperless-ngx"]="$PNGX_BASE_DIR"
     ["pyLoad"]="$PYLOAD_SERVICE"
     ["Radicale"]="$RADICALE_SERVICE"
+    ["VaultWarden"]="$VAULTWARDEN_BASE_DIR"
 )
 
 declare -A DOCKER_APPS=(
@@ -155,6 +162,7 @@ declare -A DOCKER_APPS=(
     ["Home Assistant"]=$HASS_BASE_DIR
     ["Immich"]=$IMMICH_BASE_DIR
     ["Paperless-ngx"]=$PNGX_BASE_DIR
+    ["VaultWarden"]=$VAULTWARDEN_BASE_DIR
     #["ESPHome"]=$ESPHOME_BASE_DIR
 )
 
@@ -179,6 +187,7 @@ declare -A MODULE_SERVICES=(
     ["pyLoad"]="${PYLOAD_SERVICES[*]}"
     ["Radicale"]="${RADICALE_SERVICES[*]}"
     ["BudgetBee"]=""
+    ["VaultWarden"]=""
 )
 
 WT_LIST=()
@@ -314,6 +323,10 @@ for NAME in "${MODULES[@]}"; do
 				"BudgetBee")
                     FOLDERS_TO_REMOVE["$NAME"]="${BUDGETBEE_FOLDERS[*]}"
                     FILES_TO_REMOVE["$NAME"]="${BUDGETBEE_FILES[*]}"
+                    ;;
+				"VaultWarden")
+                    FOLDERS_TO_REMOVE["$NAME"]="${VAULTWARDEN_FOLDERS[*]}"
+                    FILES_TO_REMOVE["$NAME"]="${VAULTWARDEN_FILES[*]}"
                     ;;
             esac
         fi
