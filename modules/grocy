@@ -5,7 +5,7 @@ if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
     sudo apt install -y php php-intl php-gd php-curl php-mbstring sqlite3 php-sqlite3 php-gd php-intl unzip
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm php php-intl php-gd php-curl php-mbstring sqlite php-sqlite php-gd php-intl unzip
+    sudo pacman -Syu --noconfirm php php-intl php-gd sqlite php-sqlite php-gd php-intl unzip
         sudo sed -i 's/^\s*;extension=pdo_sqlite/extension=pdo_sqlite/' /etc/php/php.ini
         sudo sed -i 's/^\s*;extension=sqlite3/extension=sqlite3/' /etc/php/php.ini
         sudo sed -i 's/^\s*;extension=gd/extension=gd/' /etc/php/php.ini
