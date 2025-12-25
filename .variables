@@ -15,7 +15,7 @@ SERVICE_PATH="/etc/systemd/system"
 VENV_PATHS="$HOME/.venv"
 DOCKER_COMPOSE_PATHS="$HOME/.docker"
 USER_SCRIPT_PATH="$HOME/.local/bin"
-BACKUP_DIR="$HOME/.backup"
+BACKUP_DIR="$HOME/.backup/forwards_$(date +%Y%m%d_%H%M%S)"
 
 if command -v apt > /dev/null; then
     PACKAGE_MANAGER="apt"
