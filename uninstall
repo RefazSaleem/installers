@@ -3,19 +3,19 @@
 source ./.variables
 
 MODULES=(
-	"Homer"
-	"Caddy+Tailscale"
+	"Homer Dashboard"
+	"Tailscale with Caddy"
 	"Beszel Hub"
 	"BudgetBee"
+	"Cloud Torrent"
 	"ESPHome"
 	"ExpenseOwl"
-	"Cloud Torrent"
 	"Grocy"
 	"Home Assistant"
 	"Immich"
 	"Jellyfin"
-	"Music Assistant"
 	"Matrix Synapse"
+	"Music Assistant"
 	"Node-red"
 	"Paperless-ngx"
 	"PlatformIO"
@@ -134,8 +134,8 @@ VSFTPD_FILES=($FTP_PAM_FILE $FTP_CONFIG_PATH $FTP_SERVICE_PATH)
 VSFTPD_SERVICES=(ftp_$NEW_USER.service)
 
 declare -A MODULE_CHECKS=(
-	["Caddy+Tailscale"]="$CADDY_CONF $CADDY_CERTS"
-	["Homer"]="$HOMER_SERVICE"
+	["Tailscale with Caddy"]="$CADDY_CONF $CADDY_CERTS"
+	["Homer Dashboard"]="$HOMER_SERVICE"
 	["Beszel Hub"]="$BESZELHUB_PATH"
 	["BudgetBee"]="$BUDGETBEE_BASE_DIR"
 	["Cloud Torrent"]="$TORR_SERVICE"
@@ -167,8 +167,8 @@ declare -A DOCKER_APPS=(
 )
 
 declare -A MODULE_SERVICES=(
-	["Caddy+Tailscale"]="${CADDY_SERVICES[*]}"
-	["Homer"]="${HOMER_SERVICES[*]}"
+	["Tailscale with Caddy"]="${CADDY_SERVICES[*]}"
+	["Homer Dashboard"]="${HOMER_SERVICES[*]}"
 	["Beszel Hub"]="${BESZELHUB_SERVICES[*]}"
 	["BudgetBee"]=""
 	["Cloud Torrent"]="${CLOUDTORRENT_SERVICES[*]}"
@@ -244,11 +244,11 @@ for NAME in "${MODULES[@]}"; do
 				SERVICES["$NAME"]="${MODULE_SERVICES[$NAME]}"
 			fi
 			case "$NAME" in
-				"Caddy+Tailscale")
+				"Tailscale with Caddy")
 					FOLDERS_TO_REMOVE["$NAME"]="${CADDY_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${CADDY_FILES[*]}"
 					;;
-				"Homer")
+				"Homer Dashboard")
 					FOLDERS_TO_REMOVE["$NAME"]="${HOMER_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${HOMER_FILES[*]}"
 					;;
