@@ -5,6 +5,7 @@ source ./.variables
 MODULES=(
 	"Homer Dashboard"
 	"Tailscale & Caddy"
+	"Autobrr"
 	"Beszel Hub"
 	"BudgetBee"
 	"Cloud Torrent"
@@ -19,6 +20,7 @@ MODULES=(
 	"Node-red"
 	"Paperless-ngx"
 	"PlatformIO"
+	"Porla"
 	"pyLoad"
 	"Radicale"
 	"SFTPGo"
@@ -35,6 +37,11 @@ CADDY_SERVICES=(caddy.service tailscaled.service)
 HOMER_FOLDERS=($HOMER_DIR)
 HOMER_FILES=($HOMER_SERVICE $HOMER_CADDY_CONF)
 HOMER_SERVICES=(homer.service)
+
+# Autobrr
+AUTOBRR_FOLDERS=($AUTOBRR_PATH)
+AUTOBRR_FILES=($AUTOBRR_SERVICE $AUTOBRR_CADDY_CONF $AUTOBRR_HOMER_BLOCK $AUTOBRR_CONFIG)
+AUTOBRR_SERVICES=(autobrr.service)
 
 # Beszel Hub
 BESZELHUB_FOLDERS=($BESZELHUB_PATH)
@@ -108,6 +115,11 @@ PIO_FOLDERS=($PIO_VENV_PATH)
 PIO_FILES=($PIO_START_SCRIPT $PIO_SERVICE $PIO_HOMER_BLOCK $PIO_CADDY_CONF)
 PIO_SERVICES=(platformio.service)
 
+# Porla
+PORLA_FOLDERS=($PORLA_PATH)
+PORLA_FILES=($PORLA_SERVICE $PORLA_CADDY_CONF $PORLA_HOMER_BLOCK)
+PORLA_SERVICES=(porla.service)
+
 # pyLoad
 PYLOAD_FOLDERS=($PYLOAD_VENV_PATH $PYLOAD_CONF_DIR)
 PYLOAD_FILES=($PYLOAD_START_SCRIPT $PYLOAD_SERVICE $PYLOAD_HOMER_BLOCK $PYLOAD_CADDY_CONF)
@@ -136,6 +148,7 @@ VSFTPD_SERVICES=(ftp_$NEW_USER.service)
 declare -A MODULE_CHECKS=(
 	["Tailscale & Caddy"]="$CADDY_CONF $CADDY_CERTS"
 	["Homer Dashboard"]="$HOMER_SERVICE"
+	["Autobrr"]="$AUTOBRR_SERVICE"
 	["Beszel Hub"]="$BESZELHUB_PATH"
 	["BudgetBee"]="$BUDGETBEE_BASE_DIR"
 	["Cloud Torrent"]="$TORR_SERVICE"
@@ -150,6 +163,7 @@ declare -A MODULE_CHECKS=(
 	["Node-red"]="$NODE_RED_SERVICE"
 	["Paperless-ngx"]="$PNGX_BASE_DIR"
 	["PlatformIO"]="$PIO_SERVICE"
+	["Porla"]="$PORLA_SERVICE"
 	["pyLoad"]="$PYLOAD_SERVICE"
 	["Radicale"]="$RADICALE_SERVICE"
 	["SFTPGo"]="$SFTPGO_SERVICE"
@@ -169,6 +183,7 @@ declare -A DOCKER_APPS=(
 declare -A MODULE_SERVICES=(
 	["Tailscale & Caddy"]="${CADDY_SERVICES[*]}"
 	["Homer Dashboard"]="${HOMER_SERVICES[*]}"
+	["Autobrr"]="${AUTOBRR_SERVICES[*]}"
 	["Beszel Hub"]="${BESZELHUB_SERVICES[*]}"
 	["BudgetBee"]=""
 	["Cloud Torrent"]="${CLOUDTORRENT_SERVICES[*]}"
@@ -181,8 +196,9 @@ declare -A MODULE_SERVICES=(
 	["Matrix Synapse"]="${SYNAPSE_SERVICES[*]}"
 	["Music Assistant"]="${MASS_SERVICES[*]}"
 	["Node-red"]="${NODE_RED_SERVICES[*]}"
-	["PlatformIO"]="${PIO_SERVICES[*]}"
 	["Paperless-ngx"]=""
+	["PlatformIO"]="${PIO_SERVICES[*]}"
+	["Porla"]="${PORLA_SERVICES[*]}"
 	["pyLoad"]="${PYLOAD_SERVICES[*]}"
 	["Radicale"]="${RADICALE_SERVICES[*]}"
 	["SFTPGo"]="${SFTPGO_SERVICES[*]}"
@@ -252,6 +268,10 @@ for NAME in "${MODULES[@]}"; do
 					FOLDERS_TO_REMOVE["$NAME"]="${HOMER_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${HOMER_FILES[*]}"
 					;;
+				"Autobrr")
+					FOLDERS_TO_REMOVE["$NAME"]="${AUTOBRR_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${AUTOBRR_FILES[*]}"
+					;;
 				"Beszel Hub")
 					FOLDERS_TO_REMOVE["$NAME"]="${BESZELHUB_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${BESZELHUB_FILES[*]}"
@@ -307,6 +327,10 @@ for NAME in "${MODULES[@]}"; do
 				"PlatformIO")
 					FOLDERS_TO_REMOVE["$NAME"]="${PIO_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${PIO_FILES[*]}"
+					;;
+				"Porla")
+					FOLDERS_TO_REMOVE["$NAME"]="${PORLA_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${PORLA_FILES[*]}"
 					;;
 				"pyLoad")
 					FOLDERS_TO_REMOVE["$NAME"]="${PYLOAD_FOLDERS[*]}"
