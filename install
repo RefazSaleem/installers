@@ -12,7 +12,7 @@ fi
 MODULES=(
 	"Tailscale & Caddy:modules/tailscale_caddy"
 	"Homer Dashboard:modules/homer"
-	"AutoBrr:modules/autobrr"
+	"Autobrr:modules/autobrr"
 	"Beszel Hub:modules/beszelhub"
 	"BudgetBee:modules/budgetbee-docker"
 	"Cloud Torrent:modules/cloud-torrent"
