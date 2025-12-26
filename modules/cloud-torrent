@@ -10,17 +10,17 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm gzip
 fi
 
-arch="$(uname -m)"
+mach_arch="$(uname -m)"
 cloud_torr_version="0.9.4"
-case "$arch" in
-  x86_64) arch="amd64" ;;
-  i386|i686) arch="386" ;;
-  aarch64) arch="arm64" ;;
-  armv6l) arch="armv6" ;;
-  *) echo "Unsupported architecture: $arch"; exit 1 ;;
+case "$mach_arch" in
+  x86_64) mach_arch="amd64" ;;
+  i386|i686) mach_arch="386" ;;
+  aarch64) mach_arch="arm64" ;;
+  armv6l) mach_arch="armv6" ;;
+  *) echo "Unsupported architecture: $mach_arch"; exit 1 ;;
 esac
 
-wget "https://github.com/jpillora/cloud-torrent/releases/download/v$cloud_torr_version/cloud-torrent_${cloud_torr_version}_linux_${arch}.gz" -O /tmp/cloud-torrent.gz
+wget "https://github.com/jpillora/cloud-torrent/releases/download/v$cloud_torr_version/cloud-torrent_${cloud_torr_version}_linux_${mach_arch}.gz" -O /tmp/cloud-torrent.gz
 sudo mkdir -p "$TORR_CLD_PATH" "$TORR_DLD_DIR"
 sudo gunzip -c /tmp/cloud-torrent.gz | sudo tee "$TORR_CLD_PATH/cloud-torrent" > /dev/null
 sudo chmod +x "$TORR_CLD_PATH/cloud-torrent"
