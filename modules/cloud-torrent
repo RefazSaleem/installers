@@ -25,7 +25,7 @@ sudo mkdir -p "$TORR_CLD_PATH" "$TORR_DLD_DIR"
 sudo gunzip -c /tmp/cloud-torrent.gz | sudo tee "$TORR_CLD_PATH/cloud-torrent" > /dev/null
 sudo chmod +x "$TORR_CLD_PATH/cloud-torrent"
 sudo rm /tmp/cloud-torrent.gz
-sudo chown -R "$USER:" "$TORR_DLD_DIR" "$TORR_CLD_PATH"
+sudo chown -R "$USER:$SERVER_GROUP" "$TORR_DLD_DIR" "$TORR_CLD_PATH"
 sudo chown -R $USER:$SERVER_GROUP "$TORR_DLD_DIR"
 sudo find "$TORR_DLD_DIR" -type f -exec chmod 660 {} \;
 sudo find "$TORR_DLD_DIR" -type d -exec chmod 770 {} \;
