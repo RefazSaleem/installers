@@ -17,7 +17,7 @@ case "$mach_arch" in
   i386|i686) mach_arch="386" ;;
   aarch64) mach_arch="arm64" ;;
   armv6l) mach_arch="armv6" ;;
-  *) echo "Unsupported architecture: $mach_arch"; exit 1 ;;
+  *) echo "Unsupported architecture: $mach_arch";;
 esac
 
 wget "https://github.com/jpillora/cloud-torrent/releases/download/v$cloud_torr_version/cloud-torrent_${cloud_torr_version}_linux_${mach_arch}.gz" -O /tmp/cloud-torrent.gz
