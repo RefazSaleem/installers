@@ -36,6 +36,14 @@ HOMER_UPDATE_SCRIPT="/usr/sbin/homer-update"
 HOMER_CADDY_CONF="$CADDY_SITES/homer.caddy"
 HOMER_MODULES_DIR="$HOMER_DIR/assets/services"
 
+#AutoBrr Variables
+AUTOBRR_PATH="/opt/autobrr"
+AUTOBRR_PORT="13035"
+AUTOBRR_SERVICE="$SERVICE_PATH/autobrr.service"
+AUTOBRR_CADDY_CONF="$CADDY_SITES/autobrr.caddy"
+AUTOBRR_HOMER_BLOCK="$HOMER_MODULES_DIR/autobrr.hmr"
+AUTOBRR_CONFIG="$AUTOBRR_PATH/config.toml"
+
 #Beszel_Hub Variables
 BESZELHUB_PATH="/opt/beszel/"
 BESZELHUB_SERVICE="$SERVICE_PATH/beszel-hub.service"
@@ -170,6 +178,13 @@ PIO_START_SCRIPT="$USER_SCRIPT_PATH/platformio"
 PIO_SERVICE="$SERVICE_PATH/platformio.service"
 PIO_CADDY_CONF="$CADDY_SITES/platformio.caddy"
 PIO_HOMER_BLOCK="$HOMER_MODULES_DIR/platformio.hmr"
+
+#Porla Variables
+PORLA_PATH="/opt/porla"
+PORLA_PORT="13030"
+PORLA_SERVICE="$SERVICE_PATH/porla.service"
+PORLA_CADDY_CONF="$CADDY_SITES/porla.caddy"
+PORLA_HOMER_BLOCK="$HOMER_MODULES_DIR/porla.hmr"
 
 # Pyload variables
 PYLOAD_VENV_PATH="$VENV_PATHS/pyload"
