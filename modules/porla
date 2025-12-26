@@ -32,10 +32,27 @@ After=syslog.target network-online.target
 Type=simple
 User=$USER
 Group=$SERVER_GROUP
-ExecStart=$PORLA_PATH/porla --http-port $PORLA_PORT --workflow-dir $PORLA_PATH/.workflows --state-dir $PORLA_PATH/.state --db $PORLA_PATH/.db/porla.db --log-level info
+ExecStart=$PORLA_PATH/porla --config $PORLA_CONFIG --workflow-dir $PORLA_PATH/.workflows --state-dir $PORLA_PATH/.state --db $PORLA_PATH/.db/porla.db --log-level info
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+porla_key=$(openssl rand -hex 32)
+
+tee "$PORLA_CONFIG" > /dev/null <<EOF
+secret_key = "$porla_key"
+
+[http]
+host = "$HOST_IP"
+port = $PORLA_PORT
+auth_disabled_yes_really = false
+EOF
+
+porla_api_token=$($PORLA_PATH/porla auth:token --config $PORLA_CONFIG)
+
+tee "$PORLA_PATH/token" > /dev/null <<EOF
+$porla_api_token
 EOF
 
 if command -v caddy >/dev/null 2>&1; then
