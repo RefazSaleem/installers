@@ -12,6 +12,7 @@ fi
 MODULES=(
 	"Tailscale & Caddy:modules/tailscale_caddy"
 	"Homer Dashboard:modules/homer"
+	"AutoBrr:modules/autobrr"
 	"Beszel Hub:modules/beszelhub"
 	"BudgetBee:modules/budgetbee-docker"
 	"Cloud Torrent:modules/cloud-torrent"
@@ -26,6 +27,7 @@ MODULES=(
 	"Node-Red:modules/nodered"
 	"Paperless-ngx:modules/paperless-docker"
 	"PlatformIO:modules/platformio"
+	"Porla:modules/porla"
 	"pyLoad:modules/pyload"
 	"Radicale:modules/radicale"
 	"SFTPGo Server:modules/sftpgo"
