@@ -1,0 +1,92 @@
+#!/bin/bash
+source ./.variables
+
+sudo mkdir -p "$BESZELHUB_PATH"
+sudo curl -sL "${GITHUB_PROXY_URL}https://github.com/henrygd/beszel/releases/latest/download/beszel_$(uname -s)_$(uname -m | sed 's/x86_64/amd64/' | sed 's/armv7l/arm/' | sed 's/aarch64/arm64/').tar.gz" | sudo tar -xz -C "$BESZELHUB_PATH" beszel
+sudo chmod +x "$BESZELHUB_PATH/beszel"
+sudo mkdir -p "$BESZELHUB_PATH/beszel_data"
+sudo chown -R $USER:$SERVER_GROUP $BESZELHUB_PATH
+
+cat <<EOF | sudo tee "$BESZELHUB_SERVICE" > /dev/null
+[Unit]
+Description=Beszel Hub Service
+After=network.target
+
+[Service]
+ExecStart=$BESZELHUB_PATH/beszel serve --http "$HOST_IP:$BESZELHUB_PORT"
+WorkingDirectory=$BESZELHUB_PATH
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat <<EOF | sudo tee "$BESZELHUB_UPDATE" > /dev/null
+[Unit]
+Description=Update beszel-hub if needed
+Wants=beszel-hub.service
+
+[Service]
+Type=oneshot
+ExecStart=$BESZELHUB_PATH/beszel update
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat <<EOF | sudo tee "$BESZELHUB_UP_TIMER" > /dev/null
+[Unit]
+Description=Run beszel-hub update daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=4h
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$(basename $BESZELHUB_SERVICE)" "$(basename $BESZELHUB_UPDATE)" "$(basename $BESZELHUB_UP_TIMER)"
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$BESZELHUB_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((BESZELHUB_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$BESZELHUB_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((BESZELHUB_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$BESZELHUB_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $BESZELHUB_CADDY_CONF
+	sudo chmod -R 755 $BESZELHUB_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$BESZELHUB_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Beszel Hub
+        url: "https://$TS_DN:$((BESZELHUB_PORT - 10000))"
+        subtitle: System Dashboard
+        icon: "fas fa-server"
+Unsecure
+      - name: Beszel Hub
+        url: "http://$TS_HOST:$((BESZELHUB_PORT - 10001))"
+        subtitle: System Dashboard
+        icon: "fas fa-server"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Beszel Hub service has been installed and configured successfully!"

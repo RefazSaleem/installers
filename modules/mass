@@ -1,0 +1,87 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv python3.13-dev build-essential ffmpeg git libpcap0.8 unzip wget
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap unzip wget
+fi
+
+if [ ! -d "$MASS_VENV_PATH" ]; then
+    $PYVER -m venv "$MASS_VENV_PATH"
+fi
+
+source "$MASS_VENV_PATH/bin/activate"
+"$MASS_VENV_PATH/bin/pip" install --upgrade pip
+"$MASS_VENV_PATH/bin/pip" install music-assistant
+
+mkdir -p "$USER_SCRIPT_PATH"
+
+cat > "$MASS_START_SCRIPT" <<EOL
+#!/bin/bash
+source "$MASS_VENV_PATH/bin/activate"
+exec mass
+EOL
+chmod +x "$MASS_START_SCRIPT"
+mkdir -p "$MASS_CONFIG"
+
+sudo tee "$MASS_SERVICE" > /dev/null <<EOL
+[Unit]
+Description=Music Assistant
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=$MASS_START_SCRIPT
+Restart=on-failure
+RestartSec=5s
+User=$USER
+Environment=$MASS_CONFIG
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$MASS_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((MASS_PORT + 128)) {
+    reverse_proxy $HOST_IP:$MASS_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((MASS_PORT + 127)) {
+    reverse_proxy $HOST_IP:$MASS_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $MASS_CADDY_CONF
+	sudo chmod -R 755 $MASS_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl enable --now $(basename $MASS_SERVICE .service)
+sudo systemctl daemon-reload
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$MASS_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Music-Assistant
+        url: "https://$TS_DN:$((MASS_PORT + 128))"
+        subtitle: Music Player
+        icon: "fas fa-music"
+Unsecure
+      - name: Music-Assistant
+        url: "http://$TS_HOST:$((MASS_PORT + 127))"
+        subtitle: Music Player
+        icon: "fas fa-music"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Music Assistant service has been installed and configured successfully!"

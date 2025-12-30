@@ -1,0 +1,446 @@
+#!/bin/bash
+
+source ./.variables
+
+MODULES=(
+	"Homer Dashboard"
+	"Tailscale & Caddy"
+	"Autobrr"
+	"Beszel Hub"
+	"BudgetBee"
+	"Cloud Torrent"
+	"ESPHome"
+	"ExpenseOwl"
+	"Grocy"
+	"Home Assistant"
+	"Immich"
+	"Jellyfin"
+	"Matrix Synapse"
+	"Mosquitto"
+	"Music Assistant"
+	"Node-red"
+	"Paperless-ngx"
+	"PlatformIO"
+	"Porla"
+	"pyLoad"
+	"Radicale"
+	"SFTPGo"
+	"VaultWarden"
+	"vsftpd"
+)
+
+# Caddy & Tailscale
+CADDY_FOLDERS=($CADDY_CERTS $CADDY_SITES)
+CADDY_FILES=($CADDY_CONF)
+CADDY_SERVICES=(caddy.service tailscaled.service)
+
+# Homer
+HOMER_FOLDERS=($HOMER_DIR)
+HOMER_FILES=($HOMER_SERVICE $HOMER_CADDY_CONF)
+HOMER_SERVICES=($(basename $HOMER_SERVICE .service))
+
+# Autobrr
+AUTOBRR_FOLDERS=($AUTOBRR_PATH)
+AUTOBRR_FILES=($AUTOBRR_SERVICE $AUTOBRR_CADDY_CONF $AUTOBRR_HOMER_BLOCK $AUTOBRR_CONFIG)
+AUTOBRR_SERVICES=($(basename "$AUTOBRR_SERVICE"))
+
+# Beszel Hub
+BESZELHUB_FOLDERS=($BESZELHUB_PATH)
+BESZELHUB_FILES=($BESZELHUB_SERVICE $BESZELHUB_UPDATE $BESZELHUB_UP_TIMER $BESZELHUB_HOMER_BLOCK $BESZELHUB_CADDY_CONF)
+BESZELHUB_SERVICES=($(basename $BESZELHUB_SERVICE) $(basename $BESZELHUB_UPDATE) $(basename $BESZELHUB_UP_TIMER))
+
+# BudgetBee
+BUDGETBEE_FOLDERS=($BUDGETBEE_BASE_DIR $BUDGETBEE_CONF_DIR)
+BUDGETBEE_FILES=($BUDGETBEE_COMPOSE_FILE $BUDGETBEE_ENV_FILE $BUDGETBEE_SIGNUP $BUDGETBEE_HOMER_BLOCK $BUDGETBEE_CADDY_CONF)
+BUDGETBEE_DOCKER=$BUDGETBEE_BASE_DIR
+
+# Cloud Torrent
+CLOUDTORRENT_FOLDERS=($CLD_TORR_CLD_PATH)
+CLOUDTORRENT_FILES=($CLD_TORR_CONF_PATH $CLD_TORR_CADDY_CONF $CLD_TORR_HOMER_BLOCK $CLD_TORR_SERVICE $CLD_TORR_MOVIES_MOVE $CLD_TORR_PARSER)
+CLOUDTORRENT_SERVICES=($(basename "$CLD_TORR_SERVICE"))
+
+# ESPHome
+ESPHOME_FOLDERS=($ESPHOME_BASE_DIR $ESPHOME_CONF_DIR $ESPHOME_VENV_PATH $ESPHOME_CONFIG_PATH)
+ESPHOME_FILES=($ESPHOME_COMPOSE_FILE $ESPHOME_START_SCRIPT $ESPHOME_SERVICE $ESPHOME_HOMER_BLOCK $ESPHOME_CADDY_CONF)
+ESPHOME_SERVICES=($(basename $ESPHOME_SERVICE))
+ESPHOME_DOCKER=$ESPHOME_BASE_DIR
+
+# ExpenseOwl
+EXPENSEOWL_FOLDERS=($EXPENSEOWL_DIR)
+EXPENSEOWL_FILES=($EXPENSEOWL_SERVICE $EXPENSEOWL_HOMER_BLOCK $EXPENSEOWL_CADDY_CONF)
+EXPENSEOWL_SERVICES=($(basename $EXPENSEOWL_SERVICE))
+
+# Grocy
+GROCY_FOLDERS=($GROCY_DIR)
+GROCY_FILES=($GROCY_SERVICE $GROCY_HOMER_BLOCK $GROCY_CADDY_CONF)
+GROCY_SERVICES=($(basename $GROCY_SERVICE))
+
+# Home Assistant
+HASS_FOLDERS=($HASS_BASE_DIR $HASS_CONF_DIR)
+HASS_FILES=($HASS_COMPOSE_FILE $HASS_HOMER_BLOCK $HASS_CADDY_CONF)
+HASS_DOCKER=$HASS_BASE_DIR
+
+# Immich
+IMMICH_FOLDERS=($IMMICH_BASE_DIR)
+IMMICH_FILES=($IMMICH_ENV_FILE $IMMICH_COMPOSE_FILE $IMMICH_MOUNT_SERVICE $IMMICH_HOMER_BLOCK $IMMICH_CADDY_CONF)
+IMMICH_DOCKER=$IMMICH_BASE_DIR
+IMMICH_SERVICES=($(basename $IMMICH_MOUNT_SERVICE))
+
+# Jellyfin
+JELLYFIN_FOLDERS=($JELLYFIN_DIR)
+JELLYFIN_FILES=($JELLYFIN_MEDIA_PERM_SCRIPT $JELLYFIN_CADDY_CONF $JELLYFIN_HOMER_BLOCK)
+JELLYFIN_SERVICES=(jellyfin)
+
+# Matrix-Synapse
+SYNAPSE_FOLDERS=($SYNAPSE_VENV_PATH $SYNAPSE_LOG_PATH $SYNAPSE_CONFIG_PATH)
+SYNAPSE_FILES=($SYNAPSE_SERVICE $TURN_LOG $CT_CONF $SYNAPSE_USER_ADD_SCRIPT $SYNAPSE_HOMER_BLOCK $SYNAPSE_CADDY_CONF)
+SYNAPSE_SERVICES=(turnserver.service $(basename $SYNAPSE_SERVICE))
+
+# Mosquitto
+MOSQUITTO_FOLDERS=()
+MOSQUITTO_FILES=($MOSQUITTO_AUTH_CR $MOSQUITTO_AUTH_FILE $MOSQUITTO_SERVICE $MOSQUITTO_CONF $MOSQUITTO_AUTH_CONF)
+MOSQUITTO_SERVICES=($(basename "$MOSQUITTO_SERVICE"))
+
+# Music Assistant
+MASS_FOLDERS=($MASS_VENV_PATH $MASS_CONFIG)
+MASS_FILES=($MASS_START_SCRIPT $MASS_SERVICE $MASS_HOMER_BLOCK $MASS_CADDY_CONF)
+MASS_SERVICES=($(basename $MASS_SERVICE))
+
+# Node-red
+NODE_RED_FOLDERS=($NODE_RED_DIR)
+NODE_RED_FILES=($NODE_RED_SERVICE $NODE_RED_HOMER_BLOCK $NODE_RED_CADDY_CONF)
+NODE_RED_SERVICES=($(basename $NODE_RED_SERVICE))
+
+# Paperless-ngx
+PNGX_FOLDERS=($PNGX_BASE_DIR $PNGX_CONF_DIR)
+PNGX_FILES=($PNGX_ENV_FILE $PNGX_COMPOSE_FILE $PNGX_COMPOSE_ENV_FILE $PNGX_HOMER_BLOCK $PNGX_CADDY_CONF)
+PNGX_DOCKER=$PNGX_BASE_DIR
+
+# PlatformIO
+PIO_FOLDERS=($PIO_VENV_PATH)
+PIO_FILES=($PIO_START_SCRIPT $PIO_SERVICE $PIO_HOMER_BLOCK $PIO_CADDY_CONF)
+PIO_SERVICES=($(basename $PIO_SERVICE))
+
+# Porla
+PORLA_FOLDERS=($PORLA_PATH)
+PORLA_FILES=($PORLA_SERVICE $PORLA_CADDY_CONF $PORLA_HOMER_BLOCK)
+PORLA_SERVICES=($(basename $PORLA_SERVICE))
+
+# pyLoad
+PYLOAD_FOLDERS=($PYLOAD_VENV_PATH $PYLOAD_CONF_DIR)
+PYLOAD_FILES=($PYLOAD_START_SCRIPT $PYLOAD_SERVICE $PYLOAD_HOMER_BLOCK $PYLOAD_CADDY_CONF)
+PYLOAD_SERVICES=($(basename $PYLOAD_SERVICE))
+
+# Radicale
+RADICALE_FOLDERS=($RADICALE_VENV_PATH $RADICALE_CONFIG_PATH $RADICALE_STORE_PATH)
+RADICALE_FILES=($RADICALE_START_SCRIPT $RADICALE_SERVICE $RADICALE_HOMER_BLOCK $RADICALE_CADDY_CONF $RADICALE_SIGNUP_SCRIPT $RADICALE_START_SCRIPT)
+RADICALE_SERVICES=($(basename $RADICALE_SERVICE))
+
+# SFTPGo
+SFTPGO_FOLDERS=($SFTPGO_DIR)
+SFTPGO_FILES=($SFTPGO_SERVICE $SFTPGO_HOMER_BLOCK $SFTPGO_CADDY_CONF)
+SFTPGO_SERVICES=($(basename $SFTPGO_SERVICE))
+
+# VaultWarden
+VAULTWARDEN_FOLDERS=($VAULTWARDEN_BASE_DIR $VAULTWARDEN_DATA_DIR)
+VAULTWARDEN_FILES=($VAULTWARDEN_COMPOSE_FILE $VAULTWARDEN_HOMER_BLOCK $VAULTWARDEN_CADDY_CONF)
+VAULTWARDEN_DOCKER=$VAULTWARDEN_BASE_DIR
+
+# vsftpd
+VSFTPD_FOLDERS=()
+VSFTPD_FILES=($FTP_PAM_FILE $FTP_CONFIG_PATH $FTP_SERVICE_PATH)
+VSFTPD_SERVICES=(ftp_$NEW_USER.service)
+
+declare -A MODULE_CHECKS=(
+	["Tailscale & Caddy"]="$CADDY_CONF $CADDY_CERTS"
+	["Homer Dashboard"]="$HOMER_SERVICE"
+	["Autobrr"]="$AUTOBRR_SERVICE"
+	["Beszel Hub"]="$BESZELHUB_SERVICE"
+	["BudgetBee"]="$BUDGETBEE_BASE_DIR"
+	["Cloud Torrent"]="$CLD_TORR_SERVICE"
+	["ESPHome"]="$ESPHOME_BASE_DIR $ESPHOME_SERVICE"
+	["ExpenseOwl"]="$EXPENSEOWL_SERVICE"
+	["Grocy"]="$GROCY_SERVICE"
+	["Home Assistant"]="$HASS_BASE_DIR $HASS_COMPOSE_FILE"
+	["Immich"]="$IMMICH_BASE_DIR"
+	["Jellyfin"]="$JELLYFIN_MEDIA_PERM_SCRIPT"
+	["Matrix Synapse"]="$SYNAPSE_SERVICE"
+	["Mosquitto"]="$MOSQUITTO_SERVICE"
+	["Music Assistant"]="$MASS_SERVICE"
+	["Node-red"]="$NODE_RED_SERVICE"
+	["Paperless-ngx"]="$PNGX_BASE_DIR"
+	["PlatformIO"]="$PIO_SERVICE"
+	["Porla"]="$PORLA_SERVICE"
+	["pyLoad"]="$PYLOAD_SERVICE"
+	["Radicale"]="$RADICALE_SERVICE"
+	["SFTPGo"]="$SFTPGO_SERVICE"
+	["VaultWarden"]="$VAULTWARDEN_BASE_DIR"
+	["vsftpd"]="$FTP_SERVICE_PATH"
+)
+
+declare -A DOCKER_APPS=(
+	["BudgetBee"]=$BUDGETBEE_BASE_DIR
+	["Home Assistant"]=$HASS_BASE_DIR
+	["Immich"]=$IMMICH_BASE_DIR
+	["Paperless-ngx"]=$PNGX_BASE_DIR
+	["VaultWarden"]=$VAULTWARDEN_BASE_DIR
+	#["ESPHome"]=$ESPHOME_BASE_DIR
+)
+
+declare -A MODULE_SERVICES=(
+	["Tailscale & Caddy"]="${CADDY_SERVICES[*]}"
+	["Homer Dashboard"]="${HOMER_SERVICES[*]}"
+	["Autobrr"]="${AUTOBRR_SERVICES[*]}"
+	["Beszel Hub"]="${BESZELHUB_SERVICES[*]}"
+	["BudgetBee"]=""
+	["Cloud Torrent"]="${CLOUDTORRENT_SERVICES[*]}"
+	["ESPHome"]="${ESPHOME_SERVICES[*]}"
+	["ExpenseOwl"]="${EXPENSEOWL_SERVICES[*]}"
+	["Grocy"]="${GROCY_SERVICES[*]}"
+	["Home Assistant"]=""
+	["Immich"]="${IMMICH_SERVICES[*]}"
+	["Jellyfin"]="${JELLYFIN_SERVICES[*]}"
+	["Matrix Synapse"]="${SYNAPSE_SERVICES[*]}"
+	["Mosquitto"]="${MOSQUITTO_SERVICES[*]}"
+	["Music Assistant"]="${MASS_SERVICES[*]}"
+	["Node-red"]="${NODE_RED_SERVICES[*]}"
+	["Paperless-ngx"]=""
+	["PlatformIO"]="${PIO_SERVICES[*]}"
+	["Porla"]="${PORLA_SERVICES[*]}"
+	["pyLoad"]="${PYLOAD_SERVICES[*]}"
+	["Radicale"]="${RADICALE_SERVICES[*]}"
+	["SFTPGo"]="${SFTPGO_SERVICES[*]}"
+	["VaultWarden"]=""
+	["vsftpd"]="${VSFTPD_SERVICES[*]}"
+)
+
+WT_LIST=()
+i=1
+for NAME in "${MODULES[@]}"; do
+	INSTALLED=""
+	for CHECK in ${MODULE_CHECKS[$NAME]}; do
+		if [[ -n "$CHECK" && ( -f "$CHECK" || -d "$CHECK" ) ]]; then
+			INSTALLED=" *"
+			break
+		fi
+	done
+
+	WT_LIST+=("$i" "${NAME}${INSTALLED}" "OFF")
+	((i++))
+done
+
+NUM_ITEMS=$(( ${#WT_LIST[@]} / 5 ))
+HEIGHT=$(( 8 + NUM_ITEMS ))
+[ $HEIGHT -gt 25 ] && HEIGHT=25
+
+MAXLEN=0
+for ((n=1; n<${#WT_LIST[@]}; n+=3)); do
+	LEN=${#WT_LIST[$n]}
+	(( LEN > MAXLEN )) && MAXLEN=$LEN
+done
+
+WIDTH=$(( 20 + MAXLEN ))
+[ $WIDTH -lt 50 ] && WIDTH=50
+[ $WIDTH -gt 100 ] && WIDTH=100
+
+CHOICES=$(whiptail --title "Uninstall Wizard" --checklist \
+"Select applications to uninstall:" "$HEIGHT" "$WIDTH" "$NUM_ITEMS" \
+"${WT_LIST[@]}" \
+3>&1 1>&2 2>&3)
+
+STATUS=$?
+if [[ $STATUS -ne 0 ]]; then
+	echo "No selections or canceled."
+	exit 0
+fi
+
+read -ra SELECTED <<< "$CHOICES"
+SELECTED=(${SELECTED[@]//\"/})
+
+declare -A SERVICES
+declare -A DOCKER_DIRECTORIES
+declare -A FOLDERS_TO_REMOVE
+declare -A FILES_TO_REMOVE
+
+i=1
+for NAME in "${MODULES[@]}"; do
+	for S in "${SELECTED[@]}"; do
+		if [[ "$S" == "$i" ]]; then
+			if [[ -n "${DOCKER_APPS[$NAME]}" ]]; then
+				DOCKER_DIRECTORIES["$NAME"]="${DOCKER_APPS[$NAME]}"
+			else
+				SERVICES["$NAME"]="${MODULE_SERVICES[$NAME]}"
+			fi
+			case "$NAME" in
+				"Tailscale & Caddy")
+					FOLDERS_TO_REMOVE["$NAME"]="${CADDY_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${CADDY_FILES[*]}"
+					;;
+				"Homer Dashboard")
+					FOLDERS_TO_REMOVE["$NAME"]="${HOMER_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${HOMER_FILES[*]}"
+					;;
+				"Autobrr")
+					FOLDERS_TO_REMOVE["$NAME"]="${AUTOBRR_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${AUTOBRR_FILES[*]}"
+					;;
+				"Beszel Hub")
+					FOLDERS_TO_REMOVE["$NAME"]="${BESZELHUB_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${BESZELHUB_FILES[*]}"
+					;;
+				"BudgetBee")
+					FOLDERS_TO_REMOVE["$NAME"]="${BUDGETBEE_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${BUDGETBEE_FILES[*]}"
+					;;
+				"Cloud Torrent")
+					FOLDERS_TO_REMOVE["$NAME"]="${CLOUDTORRENT_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${CLOUDTORRENT_FILES[*]}"
+					;;
+				"ESPHome")
+					FOLDERS_TO_REMOVE["$NAME"]="${ESPHOME_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${ESPHOME_FILES[*]}"
+					;;
+				"ExpenseOwl")
+					FOLDERS_TO_REMOVE["$NAME"]="${EXPENSEOWL_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${EXPENSEOWL_FILES[*]}"
+					;;
+				"Grocy")
+					FOLDERS_TO_REMOVE["$NAME"]="${GROCY_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${GROCY_FILES[*]}"
+					;;
+				"Home Assistant")
+					FOLDERS_TO_REMOVE["$NAME"]="${HASS_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${HASS_FILES[*]}"
+					;;
+				"Immich")
+					FOLDERS_TO_REMOVE["$NAME"]="${IMMICH_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${IMMICH_FILES[*]}"
+					;;
+				"Jellyfin")
+					FOLDERS_TO_REMOVE["$NAME"]="${JELLYFIN_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${JELLYFIN_FILES[*]}"
+					;;
+				"Matrix Synapse")
+					FOLDERS_TO_REMOVE["$NAME"]="${SYNAPSE_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${SYNAPSE_FILES[*]}"
+					;;
+				"Mosquitto")
+					FOLDERS_TO_REMOVE["$NAME"]="${MOSQUITTO_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${MOSQUITTO_FILES[*]}"
+					;;
+				"Music Assistant")
+					FOLDERS_TO_REMOVE["$NAME"]="${MASS_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${MASS_FILES[*]}"
+					;;
+				"Node-red")
+					FOLDERS_TO_REMOVE["$NAME"]="${NODE_RED_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${NODE_RED_FILES[*]}"
+					;;
+				"Paperless-ngx")
+					FOLDERS_TO_REMOVE["$NAME"]="${PNGX_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${PNGX_FILES[*]}"
+					;;
+				"PlatformIO")
+					FOLDERS_TO_REMOVE["$NAME"]="${PIO_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${PIO_FILES[*]}"
+					;;
+				"Porla")
+					FOLDERS_TO_REMOVE["$NAME"]="${PORLA_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${PORLA_FILES[*]}"
+					;;
+				"pyLoad")
+					FOLDERS_TO_REMOVE["$NAME"]="${PYLOAD_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${PYLOAD_FILES[*]}"
+					;;
+				"SFTPGo")
+					FOLDERS_TO_REMOVE["$NAME"]="${SFTPGO_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${SFTPGO_FILES[*]}"
+					;;
+				"Radicale")
+					FOLDERS_TO_REMOVE["$NAME"]="${RADICALE_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${RADICALE_FILES[*]}"
+					;;
+				"VaultWarden")
+					FOLDERS_TO_REMOVE["$NAME"]="${VAULTWARDEN_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${VAULTWARDEN_FILES[*]}"
+					;;
+				"vsftpd")
+					FOLDERS_TO_REMOVE["$NAME"]="${VSFTPD_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${VSFTPD_FILES[*]}"
+					;;
+			esac
+		fi
+	done
+	((i++))
+done
+
+for APP in "${!DOCKER_DIRECTORIES[@]}"; do
+    BASE_DIR="${DOCKER_DIRECTORIES[$APP]}"
+    if [[ -d "$BASE_DIR" ]]; then
+        echo "Stopping Docker containers for $APP in $BASE_DIR..."
+        pushd "$BASE_DIR" > /dev/null
+        sudo docker compose down
+        sudo docker compose down --volumes --rmi all --remove-orphans
+        popd > /dev/null
+    else
+        echo "Docker base directory $BASE_DIR for $APP not found!"
+    fi
+done
+
+for APP in "${!SERVICES[@]}"; do
+    read -ra SERVICE_LIST <<< "${SERVICES[$APP]}"
+    for SERVICE in "${SERVICE_LIST[@]}"; do
+        if systemctl list-unit-files | grep -q "^${SERVICE}"; then
+            sudo systemctl stop "$SERVICE"
+            sudo systemctl disable "$SERVICE"
+        else
+            SHORT_NAME="${SERVICE%.service}"
+            if systemctl list-unit-files | grep -q "^${SHORT_NAME}"; then
+                sudo systemctl stop "$SHORT_NAME"
+                sudo systemctl disable "$SHORT_NAME"
+            else
+                echo "Service $SERVICE not found, skipping..."
+            fi
+        fi
+    done
+done
+
+mkdir -p $BACKUP_DIR
+sudo cp -r $CADDY_SITES $BACKUP_DIR
+sudo cp -r $CADDY_CERTS $BACKUP_DIR
+sudo cp -r $HOMER_MODULES_DIR $BACKUP_DIR
+sudo chown -R $USER: $BACKUP_DIR
+
+for APP in "${!FOLDERS_TO_REMOVE[@]}"; do
+    for FOLDER in ${FOLDERS_TO_REMOVE[$APP]}; do
+        if [[ -d "$FOLDER" ]]; then
+            echo "Removing folder $FOLDER..."
+            sudo rm -rf "$FOLDER"
+        else
+            echo "Folder $FOLDER not found, skipping..."
+        fi
+    done
+done
+
+for APP in "${!FILES_TO_REMOVE[@]}"; do
+    for FILE in ${FILES_TO_REMOVE[$APP]}; do
+        if [[ -f "$FILE" ]]; then
+            echo "Removing file $FILE..."
+            sudo rm -f "$FILE"
+        else
+            echo "File $FILE not found, skipping..."
+        fi
+    done
+done
+if command -v caddy >/dev/null 2>&1; then
+    sudo systemctl restart caddy
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+	sudo bash $HOMER_UPDATE_SCRIPT
+	sudo systemctl restart $(basename $HOMER_SERVICE .service)
+else
+    echo "Homer not installed — skipping"
+fi

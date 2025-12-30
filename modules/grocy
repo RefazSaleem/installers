@@ -1,0 +1,79 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y php php-intl php-gd php-curl php-mbstring sqlite3 php-sqlite3 php-gd php-intl unzip
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm php php-intl php-gd sqlite php-sqlite php-gd php-intl unzip
+        sudo sed -i 's/^\s*;extension=pdo_sqlite/extension=pdo_sqlite/' /etc/php/php.ini
+        sudo sed -i 's/^\s*;extension=sqlite3/extension=sqlite3/' /etc/php/php.ini
+        sudo sed -i 's/^\s*;extension=gd/extension=gd/' /etc/php/php.ini
+        sudo sed -i 's/^\s*;extension=intl/extension=intl/' /etc/php/php.ini
+        sudo sed -i 's/^\s*;extension=iconv/extension=iconv/' /etc/php/php.ini
+fi
+
+sudo mkdir -p "$GROCY_DIR"
+sudo wget -O "/tmp/grocy.zip" https://releases.grocy.info/latest
+sudo unzip -o "/tmp/grocy.zip" -d "$GROCY_DIR"
+sudo cp "$GROCY_DIR/config-dist.php" "$GROCY_DIR/data/config.php"
+sudo rm "/tmp/grocy.zip"
+sudo chown -R $USER:$SERVER_GROUP $GROCY_DIR
+
+cat <<EOF | sudo tee "$GROCY_SERVICE" > /dev/null
+[Unit]
+Description=Grocy
+After=network.target
+
+[Service]
+ExecStart=php -S localhost:$GROCY_PORT -t $GROCY_DIR/public
+WorkingDirectory=$GROCY_DIR
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $GROCY_SERVICE .service)
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$GROCY_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((GROCY_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$GROCY_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((GROCY_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$GROCY_PORT
+}
+
+EOF
+        sudo chown -R caddy:caddy $GROCY_CADDY_CONF
+        sudo chmod -R 755 $GROCY_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$GROCY_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Grocy
+        url: "https://$TS_DN:$((GROCY_PORT - 10000))"
+        subtitle: Store Manager
+        icon: "fas fa-shopping-cart"
+Unsecure
+      - name: Grocy
+        url: "http://$TS_HOST:$((GROCY_PORT - 10001))"
+        subtitle: Store Manager
+        icon: "fas fa-shopping-cart"
+EOF
+        sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+        sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Grocy service has been installed and configured successfully!"

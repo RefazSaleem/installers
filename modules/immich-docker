@@ -1,0 +1,176 @@
+#!/bin/sh
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    VERSION="trixie"
+    sudo apt install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: "$VERSION"
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm docker docker-compose
+fi
+
+sudo systemctl enable --now docker
+mkdir -p "$IMMICH_BASE_DIR"
+sudo mkdir -p "$IMMICH_STORAGE_DIR/photos" "$IMMICH_STORAGE_DIR/database"
+sudo chown : "$IMMICH_STORAGE_DIR/photos" "$IMMICH_STORAGE_DIR/database"
+
+cat > "$IMMICH_ENV_FILE" << EOF
+UPLOAD_LOCATION=$IMMICH_STORAGE_DIR/photos
+DB_DATA_LOCATION=$IMMICH_STORAGE_DIR/database
+IMMICH_VERSION=release
+DB_PASSWORD=postgres
+DB_USERNAME=postgres
+DB_DATABASE_NAME=immich
+IMMICH_COMPOSE_PORT=$IMMICH_PORT
+EOF
+
+cat > "$IMMICH_COMPOSE_FILE" << "EOF"
+#
+# WARNING: To install Immich, follow our guide: https://immich.app/docs/install/docker-compose
+#
+# Make sure to use the docker-compose.yml of the current release:
+#
+# https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+#
+# The compose file on main may not be compatible with the latest release.
+
+name: immich
+
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    # extends:
+    #   file: hwaccel.transcoding.yml
+    #   service: cpu # set to one of [nvenc, quicksync, rkmpp, vaapi, vaapi-wsl] for accelerated transcoding
+    volumes:
+      # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
+      - ${UPLOAD_LOCATION}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
+    ports:
+      - '$IMMICH_COMPOSE_PORT:2283'
+    depends_on:
+      - redis
+      - database
+    restart: always
+    healthcheck:
+      disable: false
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    # For hardware acceleration, add one of -[armnn, cuda, rocm, openvino, rknn] to the image tag.
+    # Example tag: ${IMMICH_VERSION:-release}-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
+    #   file: hwaccel.ml.yml
+    #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
+    volumes:
+      - model-cache:/cache
+    env_file:
+      - .env
+    restart: always
+    healthcheck:
+      disable: false
+
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8-bookworm@sha256:fec42f399876eb6faf9e008570597741c87ff7662a54185593e74b09ce83d177
+    healthcheck:
+      test: redis-cli ping || exit 1
+    restart: always
+
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      # Uncomment the DB_STORAGE_TYPE: 'HDD' var if your database isn't stored on SSDs
+      # DB_STORAGE_TYPE: 'HDD'
+    volumes:
+      # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
+      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  model-cache:
+EOF
+
+cat <<EOF | sudo tee "$IMMICH_MOUNT_SERVICE" > /dev/null
+[Unit]
+Description=Immich storage bind mount
+After=local-fs.target
+
+[Mount]
+What=$IMMICH_STORAGE_DIR
+Where=$PHOTOS_HDD_STORE
+Type=none
+Options=bind
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo chmod -R 666 $PHOTOS_HDD_STORE
+#grep -qxF "#immich" /etc/fstab || echo "#immich" | sudo tee -a /etc/fstab > /dev/null
+#FSTAB_ENTRY="$PHOTOS_HDD_STORE $IMMICH_STORAGE_DIR none bind 0 0"
+#grep -qxF "$FSTAB_ENTRY" /etc/fstab || echo "$FSTAB_ENTRY" | sudo tee -a /etc/fstab > /dev/null
+
+cd "$IMMICH_BASE_DIR"
+sudo docker compose up -d
+
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$IMMICH_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((IMMICH_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$IMMICH_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((IMMICH_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$IMMICH_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $IMMICH_CADDY_CONF
+	sudo chmod -R 755 $IMMICH_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$IMMICH_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Immich
+        url: "https://$TS_DN:$((IMMICH_PORT - 10000))"
+        subtitle: Photo Storage
+        icon: "fas fa-image"
+Unsecure
+      - name: Immich
+        url: "http://$TS_HOST:$((IMMICH_PORT - 10001))"
+        subtitle: Photo Storage
+        icon: "fas fa-image"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+sudo systemctl enable --now $(basename $IMMICH_MOUNT_SERVICE)
+echo "Immich service has been installed and configured successfully!"

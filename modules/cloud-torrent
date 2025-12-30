@@ -1,0 +1,330 @@
+#!/bin/bash
+
+source ./.variables
+
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y gzip
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm gzip
+fi
+
+mach_arch="$(uname -m)"
+cloud_torr_version="0.9.4"
+case "$mach_arch" in
+  x86_64) mach_arch="amd64" ;;
+  i386|i686) mach_arch="386" ;;
+  aarch64) mach_arch="arm64" ;;
+  armv6l) mach_arch="armv6" ;;
+  *) echo "Unsupported architecture: $mach_arch";;
+esac
+
+wget "https://github.com/jpillora/cloud-torrent/releases/download/v$cloud_torr_version/cloud-torrent_${cloud_torr_version}_linux_${mach_arch}.gz" -O /tmp/cloud-torrent.gz
+sudo mkdir -p "$CLD_TORR_CLD_PATH" "$CLD_TORR_DLD_DIR"
+sudo gunzip -c /tmp/cloud-torrent.gz | sudo tee "$CLD_TORR_CLD_PATH/cloud-torrent" > /dev/null
+sudo chmod +x "$CLD_TORR_CLD_PATH/cloud-torrent"
+sudo rm /tmp/cloud-torrent.gz
+sudo chown -R "$USER:$SERVER_GROUP" "$CLD_TORR_DLD_DIR" "$CLD_TORR_CLD_PATH"
+sudo chown -R $USER:$SERVER_GROUP "$CLD_TORR_DLD_DIR"
+sudo find "$CLD_TORR_DLD_DIR" -type f -exec chmod 660 {} \;
+sudo find "$CLD_TORR_DLD_DIR" -type d -exec chmod 770 {} \;
+
+cat <<EOF | sudo tee "$CLD_TORR_MOVIES_MOVE" > /dev/null
+#!/bin/bash
+find $CLD_TORR_DLD_DIR -type f -name "*.srt" -exec mv -t $JELLYFIN_DIR/Movies {} +
+find $CLD_TORR_DLD_DIR -type f -name "*.mp4" -exec mv -t $JELLYFIN_DIR/Movies {} +
+EOF
+
+cat <<'EOF' | sudo tee "$CLD_TORR_PARSER" > /dev/null
+#!/usr/bin/env bash
+# mtlink - unified torrent/magnet helper
+# Usage:
+#   ./mtlink -t "<torrent_url>"
+#   ./mtlink -m "<wrapped_url_or_magnet>"
+
+set -euo pipefail
+
+usage() {
+  echo "Usage:"
+  echo "  $0 -t <torrent_url>    → Convert torrent URL to magnet link"
+  echo "  $0 -m <magnet_or_url>  → Clean/normalize magnet link"
+  exit 1
+}
+
+if [ $# -lt 2 ]; then
+  usage
+fi
+
+mode="$1"
+shift
+
+case "$mode" in
+  -t|--torrent)
+    url="$1"
+
+    if ! command -v curl &>/dev/null; then
+      echo "Error: curl is required." >&2
+      exit 1
+    fi
+
+    tmpdir=$(mktemp -d)
+    cd "$tmpdir"
+
+    # download the file
+    curl -sLO "$url"
+
+    # get the first file in tmpdir (should be the one just downloaded)
+    torrent_file=$(ls -1 2>/dev/null | head -n 1)
+    if [ -z "$torrent_file" ]; then
+      echo "Error: No file found after download." >&2
+      exit 1
+    fi
+
+    # optional: check MIME type
+    if command -v file &>/dev/null; then
+      mime=$(file --mime-type -b "$torrent_file" 2>/dev/null || echo "")
+      if [[ "$mime" != "application/x-bittorrent" ]]; then
+        echo "Warning: Downloaded file MIME type is '$mime', expected 'application/x-bittorrent'" >&2
+      fi
+    fi
+
+    echo "[*] Downloaded file: $torrent_file"
+
+    python3 - <<'PY'
+import sys, hashlib, urllib.parse, os
+
+torrent_file = [f for f in os.listdir('.') if os.path.isfile(f)]
+if not torrent_file:
+    print("ERROR: no torrent file found")
+    sys.exit(1)
+fname = torrent_file[0]
+
+with open(fname, "rb") as f:
+    data = f.read()
+
+pat = b'4:info'
+idx = data.find(pat)
+if idx == -1:
+    print("ERROR: 'info' dict not found.")
+    sys.exit(1)
+start = idx + len(pat)
+
+def end_of_value(buf, i):
+    c = buf[i:i+1]
+    if c == b'i':
+        j = buf.find(b'e', i)
+        return j+1
+    if c.isdigit():
+        colon = buf.find(b':', i)
+        l = int(buf[i:colon])
+        return colon + 1 + l
+    if c in (b'l', b'd'):
+        j = i+1
+        while buf[j:j+1] != b'e':
+            j = end_of_value(buf, j)
+        return j+1
+    raise ValueError("bad bencode")
+
+end = end_of_value(data, start)
+info_raw = data[start:end]
+info_sha1 = hashlib.sha1(info_raw).hexdigest()
+
+def decode(buf, i=0):
+    c = buf[i:i+1]
+    if c == b'i':
+        j = buf.find(b'e', i)
+        return int(buf[i+1:j]), j+1
+    if c.isdigit():
+        colon = buf.find(b':', i)
+        l = int(buf[i:colon])
+        start = colon + 1
+        return buf[start:start+l], start + l
+    if c == b'l':
+        lst, j = [], i+1
+        while buf[j:j+1] != b'e':
+            v, j = decode(buf, j)
+            lst.append(v)
+        return lst, j+1
+    if c == b'd':
+        d, j = {}, i+1
+        while buf[j:j+1] != b'e':
+            k, j = decode(buf, j)
+            v, j = decode(buf, j)
+            d[k] = v
+        return d, j+1
+    raise ValueError("bad token")
+
+root, _ = decode(data, 0)
+name = None
+trackers = []
+if b'info' in root and b'name' in root[b'info']:
+    try:
+        name = root[b'info'][b'name'].decode('utf-8', errors='replace')
+    except:
+        name = str(root[b'info'][b'name'])
+if b'announce' in root:
+    try:
+        trackers.append(root[b'announce'].decode('utf-8', errors='replace'))
+    except:
+        pass
+if b'announce-list' in root:
+    for sub in root[b'announce-list']:
+        if isinstance(sub, list):
+            for t in sub:
+                if isinstance(t, bytes):
+                    s = t.decode('utf-8', errors='replace')
+                    if s not in trackers:
+                        trackers.append(s)
+
+is_v2 = False
+try:
+    if b'meta version' in root[b'info'] and int(root[b'info'][b'meta version']) == 2:
+        is_v2 = True
+except:
+    pass
+
+mag = "magnet:?xt=urn:btih:" + info_sha1
+if name:
+    mag += "&dn=" + urllib.parse.quote(name)
+for tr in trackers:
+    mag += "&tr=" + urllib.parse.quote(tr)
+
+print("Magnet link:\n" + mag)
+if is_v2:
+    print("\n⚠️  Note: Torrent is v2 (meta version=2); magnet uses different hashing scheme (btmh).")
+PY
+    ;;
+
+  -m|--magnet)
+    INPUT="$1"
+    python3 - "$INPUT" <<'PY'
+import sys, urllib.parse, re
+
+raw = sys.argv[1]
+
+def extract_url_param(s):
+    parsed = urllib.parse.urlsplit(s)
+    qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    if 'url' in qs and qs['url']:
+        return qs['url'][0]
+    if s.startswith('url='):
+        return urllib.parse.unquote_plus(s.partition('=')[2])
+    return None
+
+candidate = extract_url_param(raw)
+if candidate is None:
+    if raw.strip().lower().startswith('magnet:'):
+        candidate = raw.strip()
+    else:
+        un = urllib.parse.unquote_plus(raw)
+        if un.strip().lower().startswith('magnet:'):
+            candidate = un.strip()
+        else:
+            print("ERROR: No magnet found in input.", file=sys.stderr)
+            sys.exit(3)
+
+magnet = candidate
+
+if not magnet.lower().startswith('magnet:?'):
+    print("ERROR: Candidate does not start with 'magnet:?': " + magnet, file=sys.stderr)
+    sys.exit(4)
+
+q = urllib.parse.urlsplit(magnet).query
+params = urllib.parse.parse_qs(q, keep_blank_values=True)
+
+if 'xt' not in params or not params['xt']:
+    print("ERROR: magnet missing xt (infohash).", file=sys.stderr)
+    sys.exit(5)
+
+xt = params['xt'][0]
+m = re.match(r'urn:btih:([A-Fa-f0-9]{40}|[A-Z2-7]{32}|[a-z2-7]{32})$', xt)
+if not m:
+    print("ERROR: xt value doesn't look like urn:btih:<infohash>. xt=" + xt, file=sys.stderr)
+    sys.exit(6)
+
+infohash = m.group(1)
+if re.fullmatch(r'[A-Fa-f0-9]{40}', infohash):
+    infohash_norm = infohash.lower()
+else:
+    infohash_norm = infohash.upper()
+
+parts = ["xt=urn:btih:" + infohash_norm]
+if 'dn' in params and params['dn']:
+    dn = params['dn'][0]
+    parts.append("dn=" + urllib.parse.quote_plus(dn))
+if 'tr' in params:
+    for tr in params['tr']:
+        parts.append("tr=" + urllib.parse.quote_plus(tr))
+
+canonical = "magnet:?" + "&".join(parts)
+print("Magnet link:\n" + canonical)
+PY
+    ;;
+
+  *)
+    usage
+    ;;
+esac
+EOF
+
+sudo chmod +x "$CLD_TORR_MOVIES_MOVE"
+sudo chmod +x "$CLD_TORR_PARSER"
+
+sudo tee "$CLD_TORR_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Cloud Torrent Service
+After=network.target
+
+[Service]
+ExecStart=$CLD_TORR_CLD_PATH/cloud-torrent --host $HOST_IP --port $CLD_TORR_PORT --config-path $CLD_TORR_CONF_PATH --title "Torrents Hub" --log --auth "$CLD_TORR_USER:$CLD_TORR_USER_PASS"
+WorkingDirectory=$CLD_TORR_DLD_DIR
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$CLD_TORR_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((CLD_TORR_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$CLD_TORR_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((CLD_TORR_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$CLD_TORR_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $CLD_TORR_CADDY_CONF
+	sudo chmod -R 755 $CLD_TORR_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename "$CLD_TORR_SERVICE" .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$CLD_TORR_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Torrents Hub
+        url: "https://$TS_DN:$((CLD_TORR_PORT - 10000))"
+        subtitle: Torrent Downloader
+        icon: "fas fa-cloud-download-alt"
+Unsecure
+      - name: Torrents Hub
+        url: "http://$TS_HOST:$((CLD_TORR_PORT - 10001))"
+        subtitle: Torrent Downloader
+        icon: "fas fa-cloud-download-alt"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Cloud-Torrent service has been installed and configured successfully!"

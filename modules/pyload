@@ -1,0 +1,105 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv python3.13-dev build-essential ffmpeg git libpcap0.8 libpq-dev
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs wget unzip
+fi
+
+if [ ! -d "$PYLOAD_VENV_PATH" ]; then
+    $PYVER -m venv "$PYLOAD_VENV_PATH"
+fi
+
+source "$PYLOAD_VENV_PATH/bin/activate"
+"$PYLOAD_VENV_PATH/bin/pip" install --upgrade pip
+"$PYLOAD_VENV_PATH/bin/pip" install pyload-ng[all] beaker getch multipartposthandler safeeval bottle colorama jinja2 markupsafe pycurl setuptools thrift
+
+mkdir -p "$USER_SCRIPT_PATH"
+sudo mkdir -p "$PYLOAD_DLD_DIR"
+sudo chown -R $USER:$SERVER_GROUP "$PYLOAD_DLD_DIR"
+sudo find "$PYLOAD_DLD_DIR" -type f -exec chmod 660 {} \;
+sudo find "$PYLOAD_DLD_DIR" -type d -exec chmod 770 {} \;
+
+cat > "$PYLOAD_START_SCRIPT" <<EOL
+#!/bin/bash
+source "$PYLOAD_VENV_PATH/bin/activate"
+exec "$PYLOAD_VENV_PATH/bin/python" -m pyload
+EOL
+
+chmod +x "$PYLOAD_START_SCRIPT"
+
+
+sudo tee "$PYLOAD_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Pyload Service
+After=network.target
+
+[Service]
+ExecStart=$PYLOAD_START_SCRIPT
+User=$USER
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$PYLOAD_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((PYLOAD_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$PYLOAD_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((PYLOAD_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$PYLOAD_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $PYLOAD_CADDY_CONF
+	sudo chmod -R 755 $PYLOAD_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl enable --now $(basename $PYLOAD_SERVICE .service)
+
+sudo systemctl daemon-reload
+if command -v caddy >/dev/null 2>&1; then
+    sudo systemctl restart caddy
+fi
+sudo systemctl restart $(basename $PYLOAD_SERVICE .service)
+sudo systemctl restart $(basename $PYLOAD_SERVICE .service)
+
+sed -i "s#^\([[:space:]]*int port : \"Port\" =\).*#\1 $PYLOAD_PORT#" "$PYLOAD_STG_CONF"
+sed -i "s#^\([[:space:]]*ip host : \"IP address\" =\).*#\1 $HOST_IP#" "$PYLOAD_STG_CONF"
+sed -i "s#^\([[:space:]]*folder storage_folder : \"Download folder\" =\).*#\1 $PYLOAD_DLD_DIR#" "$PYLOAD_STG_CONF"
+sed -i 's#^\([[:space:]]*modern;pyplex theme : "Theme" =\).*#\1 pyplex#' "$PYLOAD_STG_CONF"
+
+sudo systemctl restart $(basename $PYLOAD_SERVICE .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$PYLOAD_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: pyLoad
+        url: "https://$TS_DN:$((PYLOAD_PORT - 10000))"
+        subtitle: Download Manager
+        icon: "fas fa-download"
+Unsecure
+      - name: pyLoad
+        url: "http://$TS_HOST:$((PYLOAD_PORT - 10001))"
+        subtitle: Download Manager
+        icon: "fas fa-download"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "pyLoad service has been installed and configured successfully!"

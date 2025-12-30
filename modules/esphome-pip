@@ -1,0 +1,84 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv python3.13-dev build-essential ffmpeg git libpcap0.8
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap
+fi
+
+if [ ! -d "$ESPHOME_VENV_PATH" ]; then
+  $PYVER -m venv "$ESPHOME_VENV_PATH"
+fi
+
+source "$ESPHOME_VENV_PATH/bin/activate"
+pip install --upgrade pip
+pip install esphome
+
+mkdir -p "$USER_SCRIPT_PATH" "$ESPHOME_CONFIG_PATH"
+
+cat > "$ESPHOME_START_SCRIPT" <<EOL
+#!/bin/bash
+source "$ESPHOME_VENV_PATH/bin/activate"
+exec $PYVER -m esphome dashboard $ESPHOME_CONFIG_PATH --port $ESPHOME_PORT --address $HOST_IP
+EOL
+chmod +x "$ESPHOME_START_SCRIPT"
+
+cat <<EOF | sudo tee -a "$ESPHOME_SERVICE" > /dev/null
+[Unit]
+Description=ESP Home
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=$ESPHOME_START_SCRIPT
+Restart=on-failure
+User=$USER
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$ESPHOME_CADDY_CONF" > /dev/null <<EOF
+
+https://$TS_DN:$((ESPHOME_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$ESPHOME_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((ESPHOME_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$ESPHOME_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $ESPHOME_CADDY_CONF
+	sudo chmod -R 755 $ESPHOME_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $ESPHOME_SERVICE .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$ESPHOME_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: ESPHome
+        url: "https://$TS_DN:$((ESPHOME_PORT - 10000))"
+        subtitle: Home Automation
+        icon: "fas fa-microchip"
+Unsecure
+      - name: ESPHome
+        url: "http://$TS_HOST:$((ESPHOME_PORT - 10001))"
+        subtitle: Home Automation
+        icon: "fas fa-microchip"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "ESPHome service has been installed and configured successfully!"

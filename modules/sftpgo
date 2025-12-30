@@ -1,0 +1,74 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y tar
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm tar wget unzip
+fi
+
+sudo mkdir -p "$SFTPGO_DIR"
+sudo wget -O "/tmp/sftpgo.tar.xz" $(curl -s "https://api.github.com/repos/drakkan/sftpgo/releases/latest" | grep "browser_download_url.*linux_x86_64.tar.xz" | cut -d : -f 2,3 | tr -d \")
+sudo tar -xvf "/tmp/sftpgo.tar.xz" -C "$SFTPGO_DIR"
+sudo rm "/tmp/sftpgo.tar.xz"
+sudo chown -R $USER:$SERVER_GROUP $SFTPGO_DIR
+sed -i -e "s/\"port\": 8080/\"port\": \"$SFTPGO_PORT\"/" -e "s/\"address\": \"\"/\"address\": \"$SERVER_IP\"/" "$SFTPGO_DIR/sftpgo.json"
+
+cat <<EOF | sudo tee "$SFTPGO_SERVICE" > /dev/null
+[Unit]
+Description=SFTPGo Service
+After=network.target
+
+[Service]
+ExecStart=$SFTPGO_DIR/sftpgo serve
+WorkingDirectory=$SFTPGO_DIR
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $SFTPGO_SERVICE .service)
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$SFTPGO_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((SFTPGO_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$SFTPGO_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((SFTPGO_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$SFTPGO_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $SFTPGO_CADDY_CONF
+	sudo chmod -R 755 $SFTPGO_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$SFTPGO_SERVICE" ]; then
+    sudo tee "$SFTPGO_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: SFTPGo
+        url: "https://$TS_DN:$((SFTPGO_PORT - 10000))/web/client/files"
+        subtitle: File Management Server
+        icon: "fas fa-file"
+Unsecure
+      - name: SFTPGo
+        url: "http://$TS_HOST:$((SFTPGO_PORT - 10001))/web/client/files"
+        subtitle: File Management Server
+        icon: "fas fa-file"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "SFTPGo Service has been installed and configured successfully!"

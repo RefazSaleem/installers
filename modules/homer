@@ -1,0 +1,102 @@
+#!/bin/bash
+source ./.variables
+
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 unzip python3.13-dev 
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm unzip python
+fi
+
+sudo mkdir -p "$HOMER_DIR"
+sudo wget -O "/tmp/homer.zip" https://github.com/bastienwirtz/homer/releases/latest/download/homer.zip
+sudo unzip -o "/tmp/homer.zip" -d "$HOMER_DIR"
+sudo rm "/tmp/homer.zip"
+sudo chown -R $USER:$SERVER_GROUP $HOMER_DIR
+
+cat <<EOF | sudo tee "$HOMER_SERVICE" > /dev/null
+[Unit]
+Description=Homer Dashboard
+After=network.target
+
+[Service]
+ExecStart=$PYVER -m http.server $HOMER_PORT -d $HOMER_DIR
+WorkingDirectory=$HOMER_DIR
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo mkdir -p "$HOMER_MODULES_DIR"
+sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+cat <<EOF | sudo tee "$HOMER_UPDATE_SCRIPT" > /dev/null
+#!/bin/bash
+HOMER_CONFIG_FILE="$HOMER_DIR/assets/config.yml"
+HOMER_ASSETS_DIR="$HOMER_DIR/assets"
+
+
+EOF
+cat <<'EOL' | sudo tee -a "$HOMER_UPDATE_SCRIPT" > /dev/null
+cat > "$HOMER_CONFIG_FILE" <<EOF
+EOL
+
+cat <<EOL | sudo tee -a "$HOMER_UPDATE_SCRIPT" > /dev/null
+title: $(echo "$HOST_NAME" | sed 's/\b\(.\)/\u\1/g')
+subtitle: $(echo "$SERVER_GROUP" | sed 's/\b\(.\)/\u\1/g')
+logo: "logo.png"
+theme: "dark"
+
+EOL
+cat <<'EOL' | sudo tee -a "$HOMER_UPDATE_SCRIPT" > /dev/null
+services:
+  - name: Secure Connection
+    icon: "fas fa-network-wired"
+    items:
+EOF
+
+for f in $HOMER_ASSETS_DIR/services/*.hmr; do
+    awk '/^Secure/{flag=1; next} /^Unsecure/{flag=0} flag' "$f" >> "$HOMER_CONFIG_FILE"
+done
+
+cat >> "$HOMER_CONFIG_FILE" <<EOF
+
+  - name: Unsecure Connection
+    icon: "fas fa-laptop"
+    items:
+EOF
+
+for f in $HOMER_ASSETS_DIR/services/*.hmr; do
+    awk '/^Unsecure/{flag=1; next} /^$/{flag=0} flag' "$f" >> "$HOMER_CONFIG_FILE"
+done
+
+
+echo "✅ config.yml rebuilt successfully!"
+EOL
+
+sudo chmod +x "$HOMER_UPDATE_SCRIPT"
+bash "$HOMER_UPDATE_SCRIPT"
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $HOMER_SERVICE .service)
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$HOMER_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:443 {
+    reverse_proxy $HOST_IP:$HOMER_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:80 {
+    reverse_proxy $HOST_IP:$HOMER_PORT
+}
+EOF
+	sudo chown -R caddy:caddy $HOMER_CADDY_CONF
+	sudo chmod -R 755 $HOMER_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+
+echo "Homer Dashboard has been installed and configured successfully!"

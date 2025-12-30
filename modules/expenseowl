@@ -1,0 +1,75 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y golang-go
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm go
+fi
+
+cd "/opt"
+sudo git clone https://github.com/tanq16/expenseowl.git
+sudo chown -R $USER:$SERVER_GROUP "$EXPENSEOWL_DIR"
+cd "$EXPENSEOWL_DIR"
+chmod +x "$EXPENSEOWL_DIR/expenseowl"
+go build ./cmd/expenseowl
+
+cat <<EOF | sudo tee "$EXPENSEOWL_SERVICE" > /dev/null
+[Unit]
+Description=ExpenseOwl Service
+After=network.target
+
+[Service]
+ExecStart=$EXPENSEOWL_DIR/expenseowl --port $EXPENSEOWL_PORT
+WorkingDirectory=$EXPENSEOWL_DIR
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $EXPENSEOWL_SERVICE .service)
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$EXPENSEOWL_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((EXPENSEOWL_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$EXPENSEOWL_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((EXPENSEOWL_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$EXPENSEOWL_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $EXPENSEOWL_CADDY_CONF
+	sudo chmod -R 755 $EXPENSEOWL_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$EXPENSEOWL_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: ExpenseOwl
+        url: "https://$TS_DN:$((EXPENSEOWL_PORT - 10000))"
+        subtitle: Budget Tracker
+        icon: "fas fa-wallet"
+Unsecure
+      - name: ExpenseOwl
+        url: "http://$TS_HOST:$((EXPENSEOWL_PORT - 10001))"
+        subtitle: Budget Tracker
+        icon: "fas fa-wallet"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "ExpenseOwl Hub service has been installed and configured successfully!"

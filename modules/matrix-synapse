@@ -1,0 +1,155 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git python3.13-dev libpcap0.8 libpq-dev coturn openssl libssl-dev curl
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs coturn openssl curl
+fi
+
+sudo tee "$CT_CONF" > /dev/null <<EOF
+listening-ip=$TS_IP
+external-ip=$TS_IP
+relay-ip=$TS_IP
+listening-ip=$TS_DN
+external-ip=$TS_DN
+relay-ip=$TS_DN
+listening-port=3478
+tls-listening-port=5349
+min-port=49152
+max-port=49552
+lt-cred-mech
+use-auth-secret
+static-auth-secret=$SYNAPSE_AUTHSTRING
+realm=$MATRIX_SERVER
+no-stdout-log
+simple-log
+log-file=$TURN_LOG
+fingerprint
+mobility
+cli-password=turncli
+stale-nonce=600
+total-quota=100
+bps-capacity=0
+EOF
+
+if [ ! -d "$SYNAPSE_VENV_PATH" ]; then
+    $PYVER -m venv "$SYNAPSE_VENV_PATH"
+fi
+
+source "$SYNAPSE_VENV_PATH/bin/activate"
+"$SYNAPSE_VENV_PATH/bin/pip" install --upgrade pip
+"$SYNAPSE_VENV_PATH/bin/pip" install --no-warn-script-location matrix-synapse psycopg2 psycopg2-binary
+
+mkdir -p "$HOME/.local/bin" 
+sudo mkdir -p {$SYNAPSE_CONFIG_PATH,$SERVICE_PATH,$SYNAPSE_LOG_PATH,$SYNAPSE_MEDIA_PATH}
+sudo chown $USER:$SERVER_GROUP "$SYNAPSE_CONFIG_PATH" "$SERVICE_PATH" "$SYNAPSE_LOG_PATH" "$SYNAPSE_MEDIA_PATH"
+
+sudo tee "$SYNAPSE_USER_ADD_SCRIPT" > /dev/null <<EOF
+source "$SYNAPSE_VENV_PATH/bin/activate"
+exec "register_new_matrix_user" -c "$SYNAPSE_CONFIG_PATH/homeserver.yaml" "http://localhost:$SYNAPSE_PORT"
+EOF
+sudo chmod +x "$SYNAPSE_USER_ADD_SCRIPT"
+
+
+sudo tee "$SYNAPSE_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Matrix Synapse
+After=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$SYNAPSE_CONFIG_PATH
+ExecStart=$SYNAPSE_VENV_PATH/bin/python -m synapse.app.homeserver --config-path $SYNAPSE_CONFIG_PATH/homeserver.yaml
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
+
+if [ ! -f "$SYNAPSE_CONFIG_PATH/homeserver.yaml" ]; then
+    sudo "$SYNAPSE_VENV_PATH/bin/python" -m synapse.app.homeserver \
+        --server-name "$MATRIX_SERVER" \
+        --config-path "$SYNAPSE_CONFIG_PATH/homeserver.yaml" \
+        --generate-config \
+        --report-stats=no
+fi
+
+sudo sed -i "s/^server_name: .*/server_name: \"$MATRIX_SERVER\"/" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s|^pid_file: .*|pid_file: \"$SYNAPSE_CONFIG_PATH/homeserver.pid\"|" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s/\(port: \)[0-9]\+/\1$SYNAPSE_PORT/" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s/\(bind_addresses: \).*/\1[\"$HOST_IP\"]/" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+sudo sed -i "s|^media_store_path: .*|media_store_path: \"$SYNAPSE_MEDIA_PATH/media_store\"|" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+
+sudo sed -i "/database:/,+3 s|name: .*|name: sqlite3|" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+sudo sed -i "/database:/,+3 s|database: .*|database: \"$SYNAPSE_CONFIG_PATH/homeserver.db\"|" "$SYNAPSE_CONFIG_PATH/homeserver.yaml"
+
+
+cat <<EOF | sudo tee -a "$SYNAPSE_CONFIG_PATH/homeserver.yaml" > /dev/null
+
+turn_uris:
+  - "turn:$TS_IP:3478?transport=udp"
+  - "turns:$TS_IP:5349?transport=tcp"
+  - "turn:$TS_DN:3478?transport=udp"
+  - "turns:$TS_DN:5349?transport=tcp"
+turn_shared_secret: $SYNAPSE_AUTHSTRING
+turn_username: "ignored"
+turn_password: "ignored"
+
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$SYNAPSE_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((SYNAPSE_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$SYNAPSE_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((SYNAPSE_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$SYNAPSE_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $SYNAPSE_CADDY_CONF
+	sudo chmod -R 755 $SYNAPSE_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+
+if [ -f "$SYNAPSE_CONFIG_PATH/homeserver.db" ]; then
+    sudo chmod 600 "$SYNAPSE_CONFIG_PATH/homeserver.db"
+fi
+sudo chown -R $USER:$SERVER_GROUP "$SYNAPSE_CONFIG_PATH"
+sudo sed -i "s|filename: .*|filename: \"$SYNAPSE_LOG_FILE\"|" "$SYNAPSE_LOG_DEF_FILE"
+
+sudo systemctl import-environment PATH
+sudo systemctl daemon-reload
+sudo systemctl enable --now coturn $(basename $SYNAPSE_SERVICE .service)
+sudo systemctl reload caddy
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$SYNAPSE_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Matrix-Synapse
+        url: "https://$TS_DN:$((SYNAPSE_PORT - 10000))"
+        subtitle: Chat Server
+        icon: "fas fa-users"
+Unsecure
+      - name: Matrix-Synapse
+        url: "http://$TS_HOST:$((SYNAPSE_PORT - 10001))"
+        subtitle: Chat Server
+        icon: "fas fa-users"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Matrix-Synapse service has been installed and configured successfully!"

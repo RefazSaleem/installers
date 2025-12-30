@@ -1,0 +1,86 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3.13-dev python3-venv build-essential ffmpeg
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm python python-pip python-virtualenv base-devel ffmpeg
+fi
+
+if [ ! -d "$PIO_VENV_PATH" ]; then
+  $PYVER -m venv "$PIO_VENV_PATH"
+fi
+
+source "$PIO_VENV_PATH/bin/activate"
+pip install --upgrade pip
+pip install platformio
+
+mkdir -p "$USER_SCRIPT_PATH" "$PIO_WORK_DIR"
+
+cat > "$PIO_START_SCRIPT" <<EOL
+#!/bin/bash
+source "$PIO_VENV_PATH/bin/activate"
+exec $PYVER -m platformio home --host $HOST_IP --port $PIO_PORT --no-open
+EOL
+chmod +x "$PIO_START_SCRIPT"
+
+cat <<EOF | sudo tee -a "$PIO_SERVICE" > /dev/null
+[Unit]
+Description=PlatformIO Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+Environment="PLATFORMIO_CORE_DIR=$PIO_WORK_DIR"
+ExecStart=$PIO_START_SCRIPT
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$PIO_CADDY_CONF" > /dev/null <<EOF
+
+https://$TS_DN:$((PIO_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$PIO_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((PIO_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$PIO_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $PIO_CADDY_CONF
+	sudo chmod -R 755 $PIO_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $PIO_SERVICE .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$PIO_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: PlatformIO
+        url: "https://$TS_DN:$((PIO_PORT - 10000))"
+        subtitle: Embedded System IDE
+        icon: "fas fa-microchip"
+Unsecure
+      - name: PlatformIO
+        url: "http://$TS_HOST:$((PIO_PORT - 10001))"
+        subtitle: Embedded System IDE
+        icon: "fas fa-microchip"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "PlatformIO service has been installed and configured successfully!"

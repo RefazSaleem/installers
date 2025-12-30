@@ -1,0 +1,82 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    VERSION="trixie"
+    sudo apt install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: ${VERSION}
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm docker docker-compose
+fi
+
+sudo systemctl enable --now docker
+
+mkdir -p "$VAULTWARDEN_BASE_DIR" "$VAULTWARDEN_DATA_DIR"
+
+cat > "$VAULTWARDEN_COMPOSE_FILE" << EOF
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      DOMAIN: "https://vw.domain.tld"
+    volumes:
+      - $VAULTWARDEN_DATA_DIR:/data/
+    ports:
+      - $HOST_IP:$VAULTWARDEN_PORT:80
+EOF
+
+cd "$VAULTWARDEN_BASE_DIR"
+sudo docker compose up -d
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$VAULTWARDEN_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((VAULTWARDEN_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$VAULTWARDEN_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((VAULTWARDEN_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$VAULTWARDEN_PORT
+}
+
+EOF
+        sudo chown -R caddy:caddy $VAULTWARDEN_CADDY_CONF
+        sudo chmod -R 755 $VAULTWARDEN_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$VAULTWARDEN_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: VaultWarden
+        url: "https://$TS_DN:$((VAULTWARDEN_PORT - 10000))"
+        subtitle: Password Manager
+        icon: "fas fa-key"
+Unsecure
+      - name: VaultWarden
+        url: "http://$TS_HOST:$((VAULTWARDEN_PORT - 10001))"
+        subtitle: Password Manager
+        icon: "fas fa-key"
+EOF
+        sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+        sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "VAULTWARDEN service has been installed and configured successfully!"

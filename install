@@ -1,0 +1,89 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+	sudo apt upgrade
+    sudo apt install -y python3 whiptail
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm python libnewt
+fi
+
+MODULES=(
+	"Tailscale & Caddy:modules/tailscale_caddy"
+	"Homer Dashboard:modules/homer"
+	"Autobrr:modules/autobrr"
+	"Beszel Hub:modules/beszelhub"
+	"BudgetBee:modules/budgetbee-docker"
+	"Cloud Torrent:modules/cloud-torrent"
+	"ESPHome:modules/esphome-pip"
+	"ExpenseOwl:modules/expenseowl"
+	"Grocy:modules/grocy"
+	"Home Assistant:modules/hass-docker"
+	"Immich:modules/immich-docker"
+	"Jellyfin:modules/jellyfin"
+	"Matrix Synapse:modules/modules-synapse"
+	"Mosquitto Broker:modules/mosquitto"
+	"Music Assistant:modules/mass"
+	"Node-Red:modules/nodered"
+	"Paperless-ngx:modules/paperless-docker"
+	"PlatformIO:modules/platformio"
+	"Porla:modules/porla"
+	"pyLoad:modules/pyload"
+	"Radicale:modules/radicale"
+	"SFTPGo Server:modules/sftpgo"
+	"Vault Warden:modules/vaultwarden"
+	"vsftpd:modules/vsftpd"
+)
+
+WT_LIST=()
+i=1
+for entry in "${MODULES[@]}"; do
+	NAME="${entry%%:*}"
+	WT_LIST+=("$i" "$NAME" "OFF")
+	((i++))
+done
+
+NUM_ITEMS=$(( ${#WT_LIST[@]} / 5 ))
+HEIGHT=$(( 8 + NUM_ITEMS ))
+[ $HEIGHT -gt 25 ] && HEIGHT=25
+
+MAXLEN=0
+for ((n=1; n<${#WT_LIST[@]}; n+=3)); do
+	LEN=${#WT_LIST[$n]}
+	(( LEN > MAXLEN )) && MAXLEN=$LEN
+done
+
+WIDTH=$(( 20 + MAXLEN ))
+[ $WIDTH -lt 50 ] && WIDTH=50
+[ $WIDTH -gt 100 ] && WIDTH=100
+
+CHOICES=$(whiptail --title "Install Wizard" --checklist \
+"Select installers:" "$HEIGHT" "$WIDTH" "$NUM_ITEMS" \
+"${WT_LIST[@]}" \
+3>&1 1>&2 2>&3)
+
+read -ra SELECTED <<< "$CHOICES"
+SELECTED=(${SELECTED[@]//\"/})
+
+i=1
+for entry in "${MODULES[@]}"; do
+	SCRIPT="${entry##*:}"
+	for S in "${SELECTED[@]}"; do
+		[[ "$S" == "$i" ]] && chmod +x "$SCRIPT" && bash "$SCRIPT"
+	done
+	((i++))
+done
+if command -v caddy >/dev/null 2>&1; then
+	sudo chown -R caddy:caddy $CADDY_SITES
+	sudo chmod -R 755 $CADDY_SITES
+	sudo systemctl restart caddy
+else
+    echo "Caddy not installed — skipping"
+fi
+if [ -f "$HOMER_SERVICE" ]; then
+	sudo bash $HOMER_UPDATE_SCRIPT
+	sudo systemctl restart "$(basename "$HOMER_SERVICE" .service)"
+else
+    echo "Homer not installed — skipping"
+fi

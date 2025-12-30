@@ -1,0 +1,38 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt-get update
+	sudo apt-get install -y curl ca-certificates gnupg
+	. /etc/os-release
+	CODENAME="$VERSION_CODENAME"
+	sudo mkdir -p /usr/share/keyrings
+	curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.noarmor.gpg"|sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+	curl -fsSL "https://pkgs.tailscale.com/stable/debian/${CODENAME}.tailscale-keyring.list"|sudo tee /etc/apt/sources.list.d/tailscale.list
+	sudo apt update
+	sudo apt install -y tailscale caddy jq nodejs npm
+	sudo systemctl enable --now tailscaled
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm tailscale caddy jq nodejs npm
+fi
+
+sudo systemctl enable --now {tailscaled,caddy}
+sudo tailscale up --ssh --auth-key="$TS_AUTH_KEY" --hostname="$HOST_NAME"
+source ./.variables
+sudo groupadd $SERVER_GROUP
+sudo usermod -aG $SERVER_GROUP $USER
+sudo mkdir -p $CADDY_CERTS $CADDY_SITES
+cat <<EOF | sudo tee "$CADDY_CONF" > /dev/null
+import $CADDY_SITES/*.caddy
+EOF
+sudo chown caddy:caddy $CADDY_CERTS
+sudo chown caddy:caddy $CADDY_SITES
+sudo chmod 640 $CADDY_CERTS
+sudo chmod 640 $CADDY_SITES
+sudo tailscale cert $TS_DN
+sudo mv $TS_DN.crt $CADDY_CERTS
+sudo mv $TS_DN.key $CADDY_CERTS
+sudo chown -R caddy:caddy $CADDY_CERTS
+sudo chmod -R 755 $CADDY_CERTS
+
+echo "Tailscale & Caddy services has been installed and configured successfully!"

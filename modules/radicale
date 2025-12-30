@@ -1,0 +1,124 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y python3 python3-pip python3-venv build-essential ffmpeg git libpcap0.8 apache2-utils
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then 
+    sudo pacman -Syu --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap apache
+fi
+
+if [ ! -d "$RADICALE_VENV_PATH" ]; then
+  $PYVER -m venv "$RADICALE_VENV_PATH"
+fi
+
+source "$RADICALE_VENV_PATH/bin/activate"
+pip install --upgrade pip
+pip install radicale bcrypt
+
+mkdir -p "$USER_SCRIPT_PATH" "$RADICALE_CONFIG_PATH" "$RADICALE_STORE_PATH"
+
+cat > "$RADICALE_START_SCRIPT" <<EOL
+#!/bin/bash
+source "$RADICALE_VENV_PATH/bin/activate"
+exec $PYVER -m radicale --config $RADICALE_CONFIG_PATH/config
+EOL
+chmod +x "$RADICALE_START_SCRIPT"
+
+cat > "$RADICALE_CONFIG_PATH/config" <<EOF
+[server]
+hosts = $HOST_IP:$RADICALE_PORT
+
+[storage]
+type = multifilesystem
+filesystem_folder = $RADICALE_STORE_PATH
+
+[auth]
+type = htpasswd
+htpasswd_filename = $RADICALE_CONFIG_PATH/users
+htpasswd_encryption = bcrypt
+
+[rights]
+type = owner_only
+EOF
+
+cat <<EOF | sudo tee "$RADICALE_SERVICE" > /dev/null
+[Unit]
+Description=Radicale
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=$RADICALE_START_SCRIPT
+Restart=on-failure
+User=$USER
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
+cat <<EOF | sudo tee "$RADICALE_SIGNUP_SCRIPT" > /dev/null
+#!/bin/bash
+HTPASSWD_FILE="$RADICALE_CONFIG_PATH/users"
+EOF
+cat <<'EOF' | sudo tee -a "$RADICALE_SIGNUP_SCRIPT" > /dev/null
+read -rp "Enter username: " USERNAME
+if [ -z "$USERNAME" ]; then
+  echo "Username cannot be empty"
+  exit 1
+fi
+touch "$HTPASSWD_FILE"
+chown $USER: "$HTPASSWD_FILE"
+htpasswd -B "$HTPASSWD_FILE" "$USERNAME"
+if [ $? -eq 0 ]; then
+  echo "User '$USERNAME' successfully created/updated."
+else
+  echo "Failed to create user."
+  exit 1
+fi
+EOF
+
+sudo chmod +x "$RADICALE_SIGNUP_SCRIPT"
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$RADICALE_CADDY_CONF" > /dev/null <<EOF
+
+https://$TS_DN:$((RADICALE_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$RADICALE_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((RADICALE_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$RADICALE_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $RADICALE_CADDY_CONF
+	sudo chmod -R 755 $RADICALE_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $RADICALE_SERVICE .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$RADICALE_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Radicale
+        url: "https://$TS_DN:$((RADICALE_PORT - 10000))"
+        subtitle: Calendar, Journal & Tasks
+        icon: "fas fa-calendar-alt"
+Unsecure
+      - name: Radicale
+        url: "http://$TS_HOST:$((RADICALE_PORT - 10001))"
+        subtitle: Calendar, Journal & Tasks
+        icon: "fas fa-calendar-alt"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Radicale service has been installed and configured successfully!"

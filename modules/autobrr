@@ -1,0 +1,84 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y wget
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm wget
+fi
+
+sudo wget $(curl -s https://api.github.com/repos/autobrr/autobrr/releases/latest | grep download | grep linux_$(uname -m) | cut -d\" -f4) -O /tmp/autobrr.tar.gz
+sudo mkdir -p $AUTOBRR_PATH
+sudo tar -C $AUTOBRR_PATH -xzf /tmp/autobrr.tar.gz
+sudo chown -R $USER:$SERVER_GROUP $AUTOBRR_PATH
+sudo chmod 755 $AUTOBRR_PATH
+
+sudo tee "$AUTOBRR_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Autobrr
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$SERVER_GROUP
+ExecStart=$AUTOBRR_PATH/autobrr --config=$AUTOBRR_PATH
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+tee "$AUTOBRR_CONFIG" > /dev/null <<EOF
+host = "$HOST_IP"
+port = $AUTOBRR_PORT
+baseUrlModeLegacy = true
+logPath = "$AUTOBRR_PATH/autobrr.log"
+logMaxSize = 50
+logMaxBackups = 3
+checkForUpdates = true
+sessionSecret = "$(openssl rand -hex 16)"
+databaseMaxBackups = 5
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$AUTOBRR_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((AUTOBRR_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$AUTOBRR_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((AUTOBRR_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$AUTOBRR_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $AUTOBRR_CADDY_CONF
+	sudo chmod -R 755 $AUTOBRR_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename "$AUTOBRR_SERVICE" .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$AUTOBRR_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Autobrr
+        url: "https://$TS_DN:$((AUTOBRR_PORT - 10000))"
+        subtitle: Auto Downloader
+        icon: "fas fa-stream"
+Unsecure
+      - name: Autobrr
+        url: "http://$TS_HOST:$((AUTOBRR_PORT - 10001))"
+        subtitle: Auto Downloader
+        icon: "fas fa-stream"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Autobrr has been installed and configured successfully!"

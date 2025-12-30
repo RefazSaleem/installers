@@ -1,0 +1,58 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y mosquitto
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -S --noconfirm mosquitto
+fi
+
+cat <<EOF | sudo tee "$MOSQUITTO_SERVICE" > /dev/null
+[Unit]
+Description=Mosquitto MQTT Broker
+Documentation=man:mosquitto.conf(5) man:mosquitto(8)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=$USER
+GROUP=$SERVER_GROUP
+Type=notify
+NotifyAccess=main
+ExecStart=$(which mosquitto) -c $MOSQUITTO_CONF
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat <<EOF | sudo tee "$MOSQUITTO_AUTH_CR" > /dev/null
+sudo mosquitto_passwd -c $MOSQUITTO_AUTH_FILE $MOSQUITTO_USER
+sudo chown $USER:$SERVER_GROUP $MOSQUITTO_AUTH_FILE
+sudo chmod 600 $MOSQUITTO_AUTH_FILE
+sudo systemctl restart $(basename "$MOSQUITTO_SERVICE" .service)
+EOF
+
+sudo chmod +x "$MOSQUITTO_AUTH_CR"
+
+cat <<EOF | sudo tee "$MOSQUITTO_AUTH_CONF" > /dev/null
+listener $MOSQUITTO_PORT $MOSQUITTO_ADDR
+protocol mqtt
+allow_anonymous false
+password_file $MOSQUITTO_AUTH_FILE
+EOF
+
+cat <<EOF | sudo tee "$MOSQUITTO_CONF" > /dev/null
+per_listener_settings true
+persistence true
+persistence_location /var/lib/mosquitto/
+log_dest file /var/log/mosquitto/mosquitto.log
+include_dir /etc/mosquitto/conf.d
+EOF
+
+sudo systemctl enable --now $(basename "$MOSQUITTO_SERVICE" .service)
+
+echo "Mosquitto Broker has been installed and configured successfully!"

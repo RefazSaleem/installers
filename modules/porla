@@ -1,0 +1,97 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y wget
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm wget
+fi
+
+mach_arch="$(uname -m)"
+case "$mach_arch" in
+  x86_64) mach_arch="amd64" ;;
+  aarch64) mach_arch="arm64" ;;
+  *) echo "Unsupported architecture: $mach_arch";;
+esac
+
+sudo wget https://github.com/porla/porla/releases/download/v0.41.0/porla-linux-${mach_arch} -O /tmp/porla
+sudo mkdir -p $PORLA_PATH/{.state,.db,.workflows}
+sudo mv /tmp/porla $PORLA_PATH
+sudo chmod +x $PORLA_PATH/porla
+sudo chown -R $USER:$SERVER_GROUP $PORLA_PATH
+sudo chmod 755 $PORLA_PATH
+
+sudo tee "$PORLA_SERVICE" > /dev/null <<EOF
+[Unit]
+Description=Porla Client
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$SERVER_GROUP
+ExecStart=$PORLA_PATH/porla --config $PORLA_CONFIG --workflow-dir $PORLA_PATH/.workflows --state-dir $PORLA_PATH/.state --db $PORLA_PATH/.db/porla.db --log-level info
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+porla_key=$(openssl rand -hex 32)
+
+tee "$PORLA_CONFIG" > /dev/null <<EOF
+secret_key = "$porla_key"
+
+[http]
+host = "$HOST_IP"
+port = $PORLA_PORT
+auth_disabled_yes_really = false
+EOF
+
+porla_api_token=$($PORLA_PATH/porla auth:token --config $PORLA_CONFIG)
+
+tee "$PORLA_PATH/token" > /dev/null <<EOF
+$porla_api_token
+EOF
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$PORLA_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((PORLA_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$PORLA_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((PORLA_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$PORLA_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $PORLA_CADDY_CONF
+	sudo chmod -R 755 $PORLA_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $PORLA_SERVICE .service)
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$PORLA_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Porla
+        url: "https://$TS_DN:$((PORLA_PORT - 10000))"
+        subtitle: Torrent Client
+        icon: "fas fa-cloud-download-alt"
+Unsecure
+      - name: Porla
+        url: "http://$TS_HOST:$((PORLA_PORT - 10001))"
+        subtitle: Torrent Client
+        icon: "fas fa-cloud-download-alt"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Porla Torrent service has been installed and configured successfully!"
