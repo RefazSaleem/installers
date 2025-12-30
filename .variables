@@ -1,0 +1,248 @@
+#!/bin/bash
+
+#Common Variables
+HOST_IP="127.0.0.1"
+HOST_NAME="$HOSTNAME"
+TS_AUTH_KEY="tskey-..."
+CADDY_CONF="/etc/caddy/Caddyfile"
+CADDY_SITES="/etc/caddy/sites"
+CADDY_CERTS="/var/lib/caddy/certs"
+TS_HOST="$HOST_NAME"
+TS_IP=$(tailscale ip -4)
+TS_DN=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+SERVER_GROUP="homelab"
+SERVICE_PATH="/etc/systemd/system"
+VENV_PATHS="$HOME/.venv"
+DOCKER_COMPOSE_PATHS="$HOME/.docker"
+USER_SCRIPT_PATH="$HOME/.local/bin"
+CUSTOM_SCRIPTS_PATH="/usr/sbin"
+BACKUP_DIR="$HOME/.backup/nw_confs_$(date +%Y%m%d_%H%M%S)"
+
+if command -v apt > /dev/null; then
+    PACKAGE_MANAGER="apt"
+	PYVER="python3"
+elif command -v pacman > /dev/null; then
+    PACKAGE_MANAGER="pacman"
+	PYVER="python"
+else
+    echo "Neither apt nor pacman is installed. Exiting."
+    exit 1
+fi
+
+#Homer Variables
+HOMER_DIR="/opt/homer"
+HOMER_PORT="11010"
+HOMER_SERVICE="$SERVICE_PATH/homer.service"
+HOMER_UPDATE_SCRIPT="$CUSTOM_SCRIPTS_PATH/homer-update"
+HOMER_CADDY_CONF="$CADDY_SITES/homer.caddy"
+HOMER_MODULES_DIR="$HOMER_DIR/assets/services"
+
+#AutoBrr Variables
+AUTOBRR_PATH="/opt/autobrr"
+AUTOBRR_PORT="13035"
+AUTOBRR_SERVICE="$SERVICE_PATH/autobrr.service"
+AUTOBRR_CADDY_CONF="$CADDY_SITES/autobrr.caddy"
+AUTOBRR_HOMER_BLOCK="$HOMER_MODULES_DIR/autobrr.hmr"
+AUTOBRR_CONFIG="$AUTOBRR_PATH/config.toml"
+
+#Beszel_Hub Variables
+BESZELHUB_PATH="/opt/beszel/"
+BESZELHUB_SERVICE="$SERVICE_PATH/beszel-hub.service"
+BESZELHUB_PORT="16010"
+BESZELHUB_UPDATE="$SERVICE_PATH/beszel-hub-update.service"
+BESZELHUB_UP_TIMER="$SERVICE_PATH/beszel-hub-update.timer"
+BESZELHUB_CADDY_CONF="$CADDY_SITES/beszel-hub.caddy"
+BESZELHUB_HOMER_BLOCK="$HOMER_MODULES_DIR/beszel-hub.hmr"
+
+#BudgetBee Variables
+BUDGETBEE_BASE_DIR="$DOCKER_COMPOSE_PATHS/BudgetBee"
+BUDGETBEE_CONF_DIR="$HOME/.config/BudgetBee"
+BUDGETBEE_COMPOSE_FILE="$BUDGETBEE_BASE_DIR/docker-compose.yaml"
+BUDGETBEE_PORT="14010"
+BUDGETBEE_ENV_FILE="$BUDGETBEE_BASE_DIR/.env"
+BUDGETBEE_SIGNUP="$CUSTOM_SCRIPTS_PATH/budgetbee-signup"
+BUDGETBEE_CADDY_CONF="$CADDY_SITES/budgetbee.caddy"
+BUDGETBEE_HOMER_BLOCK="$HOMER_MODULES_DIR/budgetbee.hmr"
+
+#Cloud-Torrent Variables
+CLD_TORR_DLD_DIR="/mnt/ftp/Downloads"
+CLD_TORR_CLD_PATH="/opt/torrent-hub"
+CLD_TORR_CONF_PATH="$TORR_CLD_PATH/.config.json"
+CLD_TORR_SERVICE="$SERVICE_PATH/cloud-torrent.service"
+CLD_TORR_MOVIES_MOVE="$CUSTOM_SCRIPTS_PATH/mvmovies"
+CLD_TORR_PARSER="$CUSTOM_SCRIPTS_PATH/magnet"
+CLD_TORR_PORT="13000"
+CLD_TORR_USER="torrent"
+CLD_TORR_USER_PASS="torrent"
+CLD_TORR_CADDY_CONF="$CADDY_SITES/torrent.caddy"
+CLD_TORR_HOMER_BLOCK="$HOMER_MODULES_DIR/torrent.hmr"
+
+#ESPHome Variables
+ESPHOME_BASE_DIR="$DOCKER_COMPOSE_PATHS/esphome"
+ESPHOME_CONF_DIR="$HOME/.config/esphome"
+ESPHOME_COMPOSE_FILE="$ESPHOME_BASE_DIR/docker-compose.yaml"
+ESPHOME_PORT="18323"
+ESPHOME_VENV_PATH="$VENV_PATHS/esphome"
+ESPHOME_START_SCRIPT="$USER_SCRIPT_PATH/esphome"
+ESPHOME_SERVICE="$SERVICE_PATH/esphome.service"
+ESPHOME_CONFIG_PATH="$ESPHOME_VENV_PATH/configs"
+ESPHOME_CADDY_CONF="$CADDY_SITES/esphome.caddy"
+ESPHOME_HOMER_BLOCK="$HOMER_MODULES_DIR/esphome.hmr"
+
+#ExpenseOwl Variables
+EXPENSEOWL_DIR="/opt/expenseowl"
+EXPENSEOWL_SERVICE="$SERVICE_PATH/expenseowl.service"
+EXPENSEOWL_PORT="14020"
+EXPENSEOWL_CADDY_CONF="$CADDY_SITES/expenseowl.caddy"
+EXPENSEOWL_HOMER_BLOCK="$HOMER_MODULES_DIR/expenseowl.hmr"
+
+#Grocy Variables
+GROCY_DIR="/opt/grocy"
+GROCY_PORT="14030"
+GROCY_SERVICE="$SERVICE_PATH/grocy.service"
+GROCY_CADDY_CONF="$CADDY_SITES/grocy.caddy"
+GROCY_HOMER_BLOCK="$HOMER_MODULES_DIR/grocy.hmr"
+
+#Home Assistant Variables
+HASS_BASE_DIR="$DOCKER_COMPOSE_PATHS/hass"
+HASS_CONF_DIR="$HOME/.config/home-assistant"
+HASS_COMPOSE_FILE="$HASS_BASE_DIR/docker-compose.yaml"
+HASS_PORT="18123"
+HASS_CADDY_CONF="$CADDY_SITES/home-assistant.caddy"
+HASS_HOMER_BLOCK="$HOMER_MODULES_DIR/home-assistant.hmr"
+
+#Immich Variables
+IMMICH_BASE_DIR="$DOCKER_COMPOSE_PATHS/immich"
+IMMICH_STORAGE_DIR="/mnt/immich"
+IMMICH_PORT="13020"
+IMMICH_ENV_FILE="$IMMICH_BASE_DIR/.env"
+PHOTOS_HDD_STORE="/mnt/kodak"
+IMMICH_MOUNT_SERVICE="$SERVICE_PATH/$(echo "$PHOTOS_HDD_STORE" | sed 's|^/||; s|/|-|g').mount"
+IMMICH_COMPOSE_FILE="$IMMICH_BASE_DIR/docker-compose.yaml"
+IMMICH_CADDY_CONF="$CADDY_SITES/immich.caddy"
+IMMICH_HOMER_BLOCK="$HOMER_MODULES_DIR/immich.hmr"
+
+#Jellyfin Variables
+JELLYFIN_PORT="8096"
+JELLYFIN_DIR="/mnt/Media"
+JELLYFIN_MEDIA_PERM_SCRIPT="$CUSTOM_SCRIPTS_PATH/media-perm"
+JELLYFIN_CADDY_CONF="$CADDY_SITES/jellyfin.caddy"
+JELLYFIN_HOMER_BLOCK="$HOMER_MODULES_DIR/jellyfin.hmr"
+
+#Music Assistant Variables
+MASS_VENV_PATH="$VENV_PATHS/mass"
+MASS_START_SCRIPT="$USER_SCRIPT_PATH/musicassistant"
+MASS_SERVICE="$SERVICE_PATH/music-assistant.service"
+MASS_PORT="8095"
+MASS_CONFIG="$HOME/.config/mass"
+MASS_CADDY_CONF="$CADDY_SITES/music-assistant.caddy"
+MASS_HOMER_BLOCK="$HOMER_MODULES_DIR/music-assistant.hmr"
+
+# Matrix-Synapse Variables
+SYNAPSE_VENV_PATH="$VENV_PATHS/chat"
+SYNAPSE_SERVICE="$SERVICE_PATH/matrix-synapse.service"
+SYNAPSE_CONFIG_PATH="/etc/configs/synapse"
+SYNAPSE_MEDIA_PATH="/mnt/Chats"
+MATRIX_SERVER="matrix.private"
+SYNAPSE_PORT="17070"
+SYNAPSE_LOG_DEF_FILE="$SYNAPSE_CONFIG_PATH/$MATRIX_SERVER.log.config"
+SYNAPSE_LOG_PATH="/var/log/synapse/"
+SYNAPSE_LOG_FILE="$SYNAPSE_LOG_PATH/homeserver.log"
+TURN_LOG="/var/log/turnserver/turn.log"
+CT_CONF="/etc/turnserver.conf"
+SYNAPSE_USER_ADD_SCRIPT="$CUSTOM_SCRIPTS_PATH/matrix-signup"
+SYNAPSE_AUTHSTRING=$(openssl rand -hex 32)
+SYNAPSE_CADDY_CONF="$CADDY_SITES/synapse.caddy"
+SYNAPSE_HOMER_BLOCK="$HOMER_MODULES_DIR/synapse.hmr"
+
+#Mosquitto Variables
+MOSQUITTO_CONF="/etc/mosquitto/mosquitto.conf"
+MOSQUITTO_AUTH_CONF="/etc/mosquitto/conf.d/auth.conf"
+MOSQUITTO_SERVICE="$SERVICE_PATH/mosquitto-broker.service"
+MOSQUITTO_USER="mqtt"
+MOSQUITTO_PORT="11883"
+MOSQUITTO_ADDR="0.0.0.0"
+MOSQUITTO_AUTH_FILE="/etc/mosquitto/passwd"
+MOSQUITTO_AUTH_CR="$CUSTOM_SCRIPTS_PATH/mqtt-signup"
+
+#Node-red Variables
+NODE_RED_DIR="$HOME/.node-red"
+NODE_RED_PORT="18110"
+NODE_RED_SERVICE="$SERVICE_PATH/node-red.service"
+NODE_RED_CADDY_CONF="$CADDY_SITES/node-red.caddy"
+NODE_RED_HOMER_BLOCK="$HOMER_MODULES_DIR/node-red.hmr"
+
+#Paperless-ngx Variables
+PNGX_BASE_DIR="$DOCKER_COMPOSE_PATHS/pngx"
+PNGX_CONF_DIR="$HOME/.config/pgnx"
+PNGX_COMPOSE_FILE="$PNGX_BASE_DIR/docker-compose.yaml"
+PNGX_MEDIA_DIR="/mnt/ftp/Paperless-ngx"
+PNGX_PORT="13050"
+PNGX_ENV_FILE="$PNGX_BASE_DIR/.env"
+PNGX_COMPOSE_ENV_FILE="$PNGX_BASE_DIR/docker-compose.env"
+PNGX_CADDY_CONF="$CADDY_SITES/paperless-ngx.caddy"
+PNGX_HOMER_BLOCK="$HOMER_MODULES_DIR/paperless-ngx.hmr"
+
+#PlatformIO Variables
+PIO_VENV_PATH="$VENV_PATHS/platformio"
+PIO_WORK_DIR="$PIO_VENV_PATH/projects"
+PIO_PORT="18023"
+PIO_START_SCRIPT="$USER_SCRIPT_PATH/platformio"
+PIO_SERVICE="$SERVICE_PATH/platformio.service"
+PIO_CADDY_CONF="$CADDY_SITES/platformio.caddy"
+PIO_HOMER_BLOCK="$HOMER_MODULES_DIR/platformio.hmr"
+
+#Porla Variables
+PORLA_PATH="/opt/porla"
+PORLA_PORT="13030"
+PORLA_SERVICE="$SERVICE_PATH/porla.service"
+PORLA_CONFIG="$PORLA_PATH/config.toml"
+PORLA_CADDY_CONF="$CADDY_SITES/porla.caddy"
+PORLA_HOMER_BLOCK="$HOMER_MODULES_DIR/porla.hmr"
+
+# Pyload variables
+PYLOAD_VENV_PATH="$VENV_PATHS/pyload"
+PYLOAD_DLD_DIR="/mnt/ftp/Downloads"
+PYLOAD_PORT="13010"
+PYLOAD_CONF_DIR="$HOME/.pyload"
+PYLOAD_STG_CONF="$PYLOAD_CONF_DIR/settings/pyload.cfg"
+PYLOAD_START_SCRIPT="$USER_SCRIPT_PATH/pyload"
+PYLOAD_SERVICE="$SERVICE_PATH/pyload.service"
+PYLOAD_CADDY_CONF="$CADDY_SITES/pyload.caddy"
+PYLOAD_HOMER_BLOCK="$HOMER_MODULES_DIR/pyload.hmr"
+
+#Radicale variables
+RADICALE_VENV_PATH="$VENV_PATHS/radicale"
+RADICALE_CONFIG_PATH="$RADICALE_VENV_PATH/configs"
+RADICALE_STORE_PATH="$RADICALE_VENV_PATH/storage"
+RADICALE_CADDY_CONF="$CADDY_SITES/radicale.caddy"
+RADICALE_HOMER_BLOCK="$HOMER_MODULES_DIR/radicale.hmr"
+RADICALE_PORT="18920"
+RADICALE_SERVICE="$SERVICE_PATH/radicale.service"
+RADICALE_START_SCRIPT="$USER_SCRIPT_PATH/radicale"
+RADICALE_SIGNUP_SCRIPT="$CUSTOM_SCRIPTS_PATH/radicale-signup"
+
+#SFTPGo Variables
+SFTPGO_DIR="/opt/sftpgo"
+SFTPGO_PORT="18910"
+SFTPGO_SERVICE="$SERVICE_PATH/sftpgo.service"
+SFTPGO_HOMER_BLOCK="$HOMER_MODULES_DIR/sftpgo.hmr"
+SFTPGO_CADDY_CONF="$CADDY_SITES/sftpgo.caddy"
+
+#VaultWarden Variables
+VAULTWARDEN_BASE_DIR="$DOCKER_COMPOSE_PATHS/VaultWarden"
+VAULTWARDEN_COMPOSE_FILE="$VAULTWARDEN_BASE_DIR/docker-compose.yaml"
+VAULTWARDEN_PORT="18930"
+VAULTWARDEN_DATA_DIR="$VAULTWARDEN_BASE_DIR/data"
+VAULTWARDEN_CADDY_CONF="$CADDY_SITES/vaultwarden.caddy"
+VAULTWARDEN_HOMER_BLOCK="$HOMER_MODULES_DIR/vaultwarden.hmr"
+
+#vsftpd Variables
+NEW_USER="ftp"
+FTP_PASS="Error507"
+FTP_PORT="12121"
+FTPD_GROUP="$SERVER_GROUP"
+FTP_DIR="/mnt/ftp"
+FTP_PAM_FILE="/etc/pam.d/$NEW_USER"
+FTP_CONFIG_PATH="/etc/vsftpd_$NEW_USER.conf"
+FTP_SERVICE_PATH="$SERVICE_PATH/ftp_$NEW_USER.service"
