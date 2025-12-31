@@ -212,7 +212,7 @@ PYLOAD_CADDY_CONF="$CADDY_SITES/pyload.caddy"
 PYLOAD_HOMER_BLOCK="$HOMER_MODULES_DIR/pyload.hmr"
 
 #qBittorrent variables
-QBTORRENT_PORT="38000"
+QBTORRENT_PORT="13040"
 QBTORRENT_CONF_PATH="/opt/qBittorrent/configs"
 QBTORRENT_SERVICE="/etc/systemd/system/qbittorrent.service"
 QBTORRENT_CADDY_CONF="$CADDY_SITES/qbittorrent.caddy"
