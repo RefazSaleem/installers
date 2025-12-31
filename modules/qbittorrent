@@ -1,0 +1,71 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y qbittorrent-nox
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm qbittorrent-nox
+fi
+sudo mkdir -p $QBTORRENT_DLD_DIR
+sudo chown -R $USER: $QBTORRENT_DLD_DIR
+sudo chmod 770 $QBTORRENT_DLD_DIR
+sudo tee $QBTORRENT_SERVICE << EOF
+[Unit]
+Description=qBittorrent-nox service
+Documentation=man:qbittorrent-nox(1)
+Wants=network-online.target
+After=network-online.target nss-lookup.target
+
+[Service]
+Type=simple
+User=$USER
+ExecStart=$(which qbittorrent-nox) --webui-port=$QBTORRENT_PORT  --confirm-legal-notice --configuration=$QBTORRENT_CONF_PATH --save-path=$QBTORRENT_DLD_DIR
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo chown -R $USER: $QBTORRENT_CONF_PATH
+sudo chmod 770 $QBTORRENT_CONF_PATH
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $QBTORRENT_SERVICE .service)
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$QBTORRENT_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((QBTORRENT_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$QBTORRENT_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((QBTORRENT_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$QBTORRENT_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $QBTORRENT_CADDY_CONF
+	sudo chmod -R 755 $QBTORRENT_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$QBTORRENT_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: qBittorrent
+        url: "https://$TS_DN:$((QBTORRENT_PORT - 10000))"
+        subtitle: Torrent Client
+        icon: "fas cloud-download"
+Unsecure
+      - name: qBittorrent
+        url: "http://$TS_HOST:$((QBTORRENT_PORT - 10001))"
+        subtitle: Torrent Client
+        icon: "fas cloud-download"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "qBittorrent service has been installed and configured successfully!"
