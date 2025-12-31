@@ -30,6 +30,7 @@ MODULES=(
 	"PlatformIO:modules/platformio"
 	"Porla:modules/porla"
 	"pyLoad:modules/pyload"
+	"qBittorrent:modules/qbittorrent"
 	"Radicale:modules/radicale"
 	"SFTPGo Server:modules/sftpgo"
 	"Vault Warden:modules/vaultwarden"
