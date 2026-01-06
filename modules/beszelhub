@@ -83,12 +83,12 @@ Secure
       - name: Beszel Hub
         url: "https://$TS_DN:$((BESZELHUB_PORT - 10000))"
         subtitle: System Dashboard
-        icon: "fas fa-server"
+        icon: "fas fa-chart-simple"
 Unsecure
       - name: Beszel Hub
         url: "http://$TS_HOST:$((BESZELHUB_PORT - 10001))"
         subtitle: System Dashboard
-        icon: "fas fa-server"
+        icon: "fas fa-chart-simple"
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
