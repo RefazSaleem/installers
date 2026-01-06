@@ -70,12 +70,12 @@ Secure
       - name: PlatformIO
         url: "https://$TS_DN:$((PIO_PORT - 10000))"
         subtitle: Embedded System IDE
-        icon: "fas fa-microchip"
+        icon: "fas fa-code"
 Unsecure
       - name: PlatformIO
         url: "http://$TS_HOST:$((PIO_PORT - 10001))"
         subtitle: Embedded System IDE
-        icon: "fas fa-microchip"
+        icon: "fas fa-code"
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
