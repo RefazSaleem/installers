@@ -57,12 +57,12 @@ Secure
       - name: SFTPGo
         url: "https://$TS_DN:$((SFTPGO_PORT - 10000))/web/client/files"
         subtitle: File Management Server
-        icon: "fas fa-file"
+        icon: "fas fa-hard-drive"
 Unsecure
       - name: SFTPGo
         url: "http://$TS_HOST:$((SFTPGO_PORT - 10001))/web/client/files"
         subtitle: File Management Server
-        icon: "fas fa-file"
+        icon: "fas fa-hard-drive"
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
