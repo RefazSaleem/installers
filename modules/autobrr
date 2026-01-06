@@ -68,12 +68,12 @@ Secure
       - name: Autobrr
         url: "https://$TS_DN:$((AUTOBRR_PORT - 10000))"
         subtitle: Auto Downloader
-        icon: "fas fa-stream"
+        icon: "fas fa-file-video"
 Unsecure
       - name: Autobrr
         url: "http://$TS_HOST:$((AUTOBRR_PORT - 10001))"
         subtitle: Auto Downloader
-        icon: "fas fa-stream"
+        icon: "fas fa-file-video"
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
