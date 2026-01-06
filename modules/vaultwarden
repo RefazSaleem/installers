@@ -66,12 +66,12 @@ Secure
       - name: VaultWarden
         url: "https://$TS_DN:$((VAULTWARDEN_PORT - 10000))"
         subtitle: Password Manager
-        icon: "fas fa-key"
+        icon: "fas fa-fingerprint"
 Unsecure
       - name: VaultWarden
         url: "http://$TS_HOST:$((VAULTWARDEN_PORT - 10001))"
         subtitle: Password Manager
-        icon: "fas fa-key"
+        icon: "fas fa-fingerprint"
 EOF
         sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
         sudo chmod -R 755 $HOMER_MODULES_DIR
