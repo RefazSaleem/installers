@@ -29,6 +29,9 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
+sudo mkdir -p $(dirname $MOSQUITTO_AUTH_CR)
+sudo chown $USER:SERVER_GROUP $(dirname $MOSQUITTO_AUTH_CR)
+
 cat <<EOF | sudo tee "$MOSQUITTO_AUTH_CR" > /dev/null
 sudo mosquitto_passwd -c $MOSQUITTO_AUTH_FILE $MOSQUITTO_USER
 sudo chown $USER:$SERVER_GROUP $MOSQUITTO_AUTH_FILE
