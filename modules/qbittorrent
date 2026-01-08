@@ -10,7 +10,7 @@ fi
 sudo mkdir -p $QBTORRENT_DLD_DIR
 sudo chown -R $USER:$SERVER_GROUP $QBTORRENT_DLD_DIR
 sudo chmod 770 $QBTORRENT_DLD_DIR
-sudo tee $QBTORRENT_SERVICE << EOF
+cat <<EOF | sudo tee "$QBTORRENT_SERVICE" > /dev/null
 [Unit]
 Description=qBittorrent-nox service
 Documentation=man:qbittorrent-nox(1)
