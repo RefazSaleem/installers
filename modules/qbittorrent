@@ -8,7 +8,7 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm qbittorrent-nox
 fi
 sudo mkdir -p $QBTORRENT_DLD_DIR
-sudo chown -R $USER: $QBTORRENT_DLD_DIR
+sudo chown -R $USER:$SERVER_GROUP $QBTORRENT_DLD_DIR
 sudo chmod 770 $QBTORRENT_DLD_DIR
 sudo tee $QBTORRENT_SERVICE << EOF
 [Unit]
@@ -20,14 +20,12 @@ After=network-online.target nss-lookup.target
 [Service]
 Type=simple
 User=$USER
-ExecStart=$(which qbittorrent-nox) --webui-port=$QBTORRENT_PORT  --confirm-legal-notice --configuration=$QBTORRENT_CONF_PATH --save-path=$QBTORRENT_DLD_DIR
+ExecStart=$(which qbittorrent-nox) --webui-port=$QBTORRENT_PORT  --confirm-legal-notice --save-path=$QBTORRENT_DLD_DIR
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-sudo chown -R $USER: $QBTORRENT_CONF_PATH
-sudo chmod 770 $QBTORRENT_CONF_PATH
 sudo systemctl daemon-reload
 sudo systemctl enable --now $(basename $QBTORRENT_SERVICE .service)
 
