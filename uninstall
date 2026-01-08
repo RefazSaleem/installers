@@ -228,7 +228,7 @@ for NAME in "${MODULES[@]}"; do
 	INSTALLED=""
 	for CHECK in ${MODULE_CHECKS[$NAME]}; do
 		if [[ -n "$CHECK" && ( -f "$CHECK" || -d "$CHECK" ) ]]; then
-			INSTALLED=" *"
+			INSTALLED="(*)"
 			break
 		fi
 	done
@@ -237,7 +237,7 @@ for NAME in "${MODULES[@]}"; do
 	((i++))
 done
 
-NUM_ITEMS=$(( ${#WT_LIST[@]} / 5 ))
+NUM_ITEMS=$(( ${#WT_LIST[@]} / 6 ))
 HEIGHT=$(( 8 + NUM_ITEMS ))
 [ $HEIGHT -gt 25 ] && HEIGHT=25
 
