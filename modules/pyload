@@ -73,8 +73,13 @@ sudo systemctl daemon-reload
 if command -v caddy >/dev/null 2>&1; then
     sudo systemctl restart caddy
 fi
-sudo systemctl restart $(basename $PYLOAD_SERVICE .service)
-sudo systemctl restart $(basename $PYLOAD_SERVICE .service)
+
+for i in {1..30}; do
+    if [ -f "$PYLOAD_STG_CONF" ]; then
+        break
+    fi
+    sleep 1
+done
 
 sed -i "s#^\([[:space:]]*int port : \"Port\" =\).*#\1 $PYLOAD_PORT#" "$PYLOAD_STG_CONF"
 sed -i "s#^\([[:space:]]*ip host : \"IP address\" =\).*#\1 $HOST_IP#" "$PYLOAD_STG_CONF"
