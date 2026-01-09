@@ -27,6 +27,28 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
+sudo systemctl start $(basename $QBTORRENT_SERVICE .service)
+for i in {1..30}; do
+    if [ -f "$QBTORRENT_CONF_PATH/qBittorrent.conf" ]; then
+        break
+    fi
+    sleep 1
+done
+sudo systemctl stop $(basename $QBTORRENT_SERVICE .service)
+
+
+tee -a $QBTORRENT_CONF_PATH/qBittorrent.conf >/dev/null <<'EOF'
+General\Locale=en
+MailNotification\req_auth=true
+WebUI\AuthSubnetWhitelist=0.0.0.0/0
+WebUI\AuthSubnetWhitelistEnabled=true
+WebUI\CSRFProtection=false
+WebUI\ClickjackingProtection=false
+WebUI\HostHeaderValidation=false
+WebUI\LocalHostAuth=false
+WebUI\SecureCookie=false
+EOF
+
 sudo systemctl enable --now $(basename $QBTORRENT_SERVICE .service)
 
 if command -v caddy >/dev/null 2>&1; then
