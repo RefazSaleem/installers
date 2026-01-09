@@ -74,12 +74,12 @@ Secure
       - name: qBittorrent
         url: "https://$TS_DN:$((QBTORRENT_PORT - 10000))"
         subtitle: Torrent Client
-        icon: "fas cloud-download"
+        icon: "fas fa-cloud-download"
 Unsecure
       - name: qBittorrent
         url: "http://$TS_HOST:$((QBTORRENT_PORT - 10001))"
         subtitle: Torrent Client
-        icon: "fas cloud-download"
+        icon: "fas fa-cloud-download"
 EOF
 	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
 	sudo chmod -R 755 $HOMER_MODULES_DIR
