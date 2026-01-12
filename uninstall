@@ -19,6 +19,7 @@ MODULES=(
 	"Mosquitto"
 	"Music Assistant"
 	"Node-red"
+	"Ollama"
 	"Paperless-ngx"
 	"PlatformIO"
 	"Porla"
@@ -112,6 +113,11 @@ NODE_RED_FOLDERS=($NODE_RED_DIR)
 NODE_RED_FILES=($NODE_RED_SERVICE $NODE_RED_HOMER_BLOCK $NODE_RED_CADDY_CONF)
 NODE_RED_SERVICES=($(basename $NODE_RED_SERVICE))
 
+# Ollama
+OLLAMA_FOLDERS=($OLLAMA_PATH)
+OLLAMA_FILES=($OLLAMA_SERVICE $OLLAMA_UI_SERVICE $OLLAMA_UI_HOMER_BLOCK $OLLAMA_UI_CADDY_CONF)
+OLLAMA_SERVICES=($(basename $OLLAMA_SERVICE) $(basename $OLLAMA_UI_SERVICE))
+
 # Paperless-ngx
 PNGX_FOLDERS=($PNGX_BASE_DIR $PNGX_CONF_DIR)
 PNGX_FILES=($PNGX_ENV_FILE $PNGX_COMPOSE_FILE $PNGX_COMPOSE_ENV_FILE $PNGX_HOMER_BLOCK $PNGX_CADDY_CONF)
@@ -174,6 +180,7 @@ declare -A MODULE_CHECKS=(
 	["Mosquitto"]="$MOSQUITTO_SERVICE"
 	["Music Assistant"]="$MASS_SERVICE"
 	["Node-red"]="$NODE_RED_SERVICE"
+	["Ollama"]="$OLLAMA_SERVICE"
 	["Paperless-ngx"]="$PNGX_BASE_DIR"
 	["PlatformIO"]="$PIO_SERVICE"
 	["Porla"]="$PORLA_SERVICE"
@@ -211,6 +218,7 @@ declare -A MODULE_SERVICES=(
 	["Mosquitto"]="${MOSQUITTO_SERVICES[*]}"
 	["Music Assistant"]="${MASS_SERVICES[*]}"
 	["Node-red"]="${NODE_RED_SERVICES[*]}"
+	["Ollama"]="${OLLAMA_SERVICES[*]}"
 	["Paperless-ngx"]=""
 	["PlatformIO"]="${PIO_SERVICES[*]}"
 	["Porla"]="${PORLA_SERVICES[*]}"
@@ -343,6 +351,10 @@ for NAME in "${MODULES[@]}"; do
 				"Node-red")
 					FOLDERS_TO_REMOVE["$NAME"]="${NODE_RED_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${NODE_RED_FILES[*]}"
+					;;
+				"Ollama")
+					FOLDERS_TO_REMOVE["$NAME"]="${OLLAMA_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${OLLAMA_FILES[*]}"
 					;;
 				"Paperless-ngx")
 					FOLDERS_TO_REMOVE["$NAME"]="${PNGX_FOLDERS[*]}"
