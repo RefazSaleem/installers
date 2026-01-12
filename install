@@ -26,6 +26,7 @@ MODULES=(
 	"Mosquitto Broker:modules/mosquitto"
 	"Music Assistant:modules/mass"
 	"Node-Red:modules/nodered"
+	"Ollama:modules/ollama"
 	"Paperless-ngx:modules/paperless-docker"
 	"PlatformIO:modules/platformio"
 	"Porla:modules/porla"
