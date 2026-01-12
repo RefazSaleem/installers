@@ -1,0 +1,113 @@
+#!/bin/bash
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y nodejs npm wget tar pciutils git
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm nodejs npm wget tar pciutils git
+fi
+
+wget -O /tmp/ollama.tgz "https://ollama.com/download/ollama-linux-amd64.tgz"
+sudo mkdir -p $OLLAMA_PATH
+sudo tar -xzf /tmp/ollama.tgz -C "$OLLAMA_PATH"
+sudo rm /tmp/ollama.tgz
+sudo git clone https://github.com/HelgeSverre/ollama-gui.git $OLLAMA_UI_PATH
+sudo chown -R $USER:$SERVER_GROUP $OLLAMA_PATH
+cd $OLLAMA_UI_PATH
+npm install
+if lspci -d 10de: | grep -q NVIDIA; then
+    GPU_TYPE="nvidia"
+    echo "NVIDIA GPU detected"
+    if [ "$PACKAGE_MANAGER" = "apt" ]; then
+        sudo apt update
+        sudo apt install -y cuda-drivers
+    elif [ "$PACKAGE_MANAGER" = "pacman" ]; then
+        sudo pacman -Syu --noconfirm cuda
+    fi
+elif lspci -d 1002: | grep -q AMD; then
+    GPU_TYPE="amd"
+    echo "AMD GPU detected"
+    if [ "$PACKAGE_MANAGER" = "apt" ]; then
+        sudo apt update
+        sudo apt install -y rocm-dkms
+    elif [ "$PACKAGE_MANAGER" = "pacman" ]; then
+        sudo pacman -Syu --noconfirm rocm-dkms
+    fi
+else
+    echo "No NVIDIA/AMD GPU detected. Running CPU-only."
+fi
+sudo ln  -sf $OLLAMA_PATH/bin/ollama $CUSTOM_SCRIPTS_PATH/ollama
+
+cat <<EOF | sudo tee "$OLLAMA_SERVICE" > /dev/null
+[Unit]
+Description=Ollama Service
+After=network.target
+
+[Service]
+ExecStart=$OLLAMA_PATH/bin/ollama serve
+WorkingDirectory=$OLLAMA_PATH
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat <<EOF | sudo tee "$OLLAMA_UI_SERVICE" > /dev/null
+[Unit]
+Description=Ollama Web-UI
+After=network.target
+
+[Service]
+WorkingDirectory=$OLLAMA_UI_PATH
+ExecStart=npm run dev -- --port $OLLAMA_UI_PORT
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$(basename $OLLAMA_SERVICE)" "$(basename $OLLAMA_UI_SERVICE)"
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$OLLAMA_UI_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((OLLAMA_UI_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$OLLAMA_UI_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((OLLAMA_UI_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$OLLAMA_UI_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $OLLAMA_UI_CADDY_CONF
+	sudo chmod -R 755 $OLLAMA_UI_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$OLLAMA_UI_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Ollama
+        url: "https://$TS_DN:$((OLLAMA_UI_PORT - 10000))"
+        subtitle: AI Chatbot
+        icon: "fas fa-robot"
+Unsecure
+      - name: Ollama
+        url: "http://$TS_HOST:$((OLLAMA_UI_PORT - 10001))"
+        subtitle: AI Chatbot
+        icon: "fas fa-robot"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Ollama service & UI has been installed and configured successfully!"
