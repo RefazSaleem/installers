@@ -61,7 +61,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=$OLLAMA_UI_PATH
-ExecStart=npm run dev -- --port $OLLAMA_UI_PORT
+ExecStart=npm run dev -- --port $OLLAMA_UI_PORT --host $HOST_IP
 User=$USER
 Restart=always
 RestartSec=5
