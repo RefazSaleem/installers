@@ -11,7 +11,7 @@ fi
 wget -O /tmp/ollama.tar.zst "https://ollama.com/download/ollama-linux-amd64.tar.zst"
 sudo mkdir -p $OLLAMA_PATH
 sudo tar --use-compress-program=unzstd -xf /tmp/ollama.tar.zst -C "$OLLAMA_PATH"
-sudo rm /tmp/ollama.tgz
+sudo rm /tmp/ollama.tar.zst
 if lspci -d 10de: | grep -q NVIDIA; then
     GPU_TYPE="nvidia"
     echo "NVIDIA GPU detected"
