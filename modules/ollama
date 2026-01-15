@@ -3,19 +3,15 @@ source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
-    sudo apt install -y nodejs npm wget tar pciutils git
+    sudo apt install -y wget tar pciutils build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev wget libbz2-dev
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -Syu --noconfirm nodejs npm wget tar pciutils git
+    sudo pacman -Syu --needed base-devel zlib ncurses gdbm nss openssl readline libffi sqlite wget bzip2 wget tar pciutils
 fi
 
 wget -O /tmp/ollama.tgz "https://ollama.com/download/ollama-linux-amd64.tgz"
 sudo mkdir -p $OLLAMA_PATH
 sudo tar -xzf /tmp/ollama.tgz -C "$OLLAMA_PATH"
 sudo rm /tmp/ollama.tgz
-sudo git clone https://github.com/HelgeSverre/ollama-gui.git $OLLAMA_UI_PATH
-sudo chown -R $USER:$SERVER_GROUP $OLLAMA_PATH
-cd $OLLAMA_UI_PATH
-npm install
 if lspci -d 10de: | grep -q NVIDIA; then
     GPU_TYPE="nvidia"
     echo "NVIDIA GPU detected"
@@ -39,6 +35,33 @@ else
 fi
 sudo ln  -sf $OLLAMA_PATH/bin/ollama $CUSTOM_SCRIPTS_PATH/ollama
 
+req_python_ver="3.11.3"
+
+sudo wget https://www.python.org/ftp/python/$req_python_ver/Python-$req_python_ver.tgz -O /tmp/python3.tgz
+sudo tar -xvf /tmp/python3.tgz -C "/tmp"
+cd "/tmp/Python-$req_python_ver"
+sudo ./configure --enable-optimizations
+sudo make -j $(( $(nproc) / 4 ))
+sudo make altinstall
+sudo rm -rf "/tmp/Python-$req_python_ver"
+
+if [ ! -d "$OPENWEBUI_UI_VENV_PATH" ]; then
+  python${req_python_ver%.*} -m venv "$OPENWEBUI_UI_VENV_PATH"
+fi
+
+source "$OPENWEBUI_UI_VENV_PATH/bin/activate"
+pip install --upgrade pip setuptools wheel
+pip install open-webui
+
+mkdir -p "$USER_SCRIPT_PATH" "$ESPHOME_CONFIG_PATH"
+
+cat > "$OPENWEBUI_UI_START_SCRIPT" <<EOL
+#!/bin/bash
+source $OPENWEBUI_UI_VENV_PATH/bin/activate
+open-webui serve --port $OPENWEBUI_UI_PORT --host $HOST_IP
+EOL
+chmod +x "$OPENWEBUI_UI_START_SCRIPT"
+
 cat <<EOF | sudo tee "$OLLAMA_SERVICE" > /dev/null
 [Unit]
 Description=Ollama Service
@@ -55,14 +78,14 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-cat <<EOF | sudo tee "$OLLAMA_UI_SERVICE" > /dev/null
+cat <<EOF | sudo tee "$OPENWEBUI_UI_SERVICE" > /dev/null
 [Unit]
-Description=Ollama Web-UI
+Description=Ollama Service
 After=network.target
 
 [Service]
-WorkingDirectory=$OLLAMA_UI_PATH
-ExecStart=npm run dev -- --port $OLLAMA_UI_PORT --host $HOST_IP
+ExecStart=$OPENWEBUI_UI_START_SCRIPT
+WorkingDirectory=$VENV_PATHS/open-webui
 User=$USER
 Restart=always
 RestartSec=5
@@ -72,35 +95,35 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now "$(basename $OLLAMA_SERVICE)" "$(basename $OLLAMA_UI_SERVICE)"
+sudo systemctl enable --now "$(basename $OLLAMA_SERVICE)" "$(basename $OPENWEBUI_UI_SERVICE)"
 
 if command -v caddy >/dev/null 2>&1; then
-    sudo tee "$OLLAMA_UI_CADDY_CONF" > /dev/null <<EOF
-https://$TS_DN:$((OLLAMA_UI_PORT - 10000)) {
-    reverse_proxy $HOST_IP:$OLLAMA_UI_PORT
+    sudo tee "$OPENWEBUI_UI_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((OPENWEBUI_UI_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$OPENWEBUI_UI_PORT
     tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
 }
-http://$TS_HOST:$((OLLAMA_UI_PORT - 10001)) {
-    reverse_proxy $HOST_IP:$OLLAMA_UI_PORT
+http://$TS_HOST:$((OPENWEBUI_UI_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$OPENWEBUI_UI_PORT
 }
 
 EOF
-	sudo chown -R caddy:caddy $OLLAMA_UI_CADDY_CONF
-	sudo chmod -R 755 $OLLAMA_UI_CADDY_CONF
+	sudo chown -R caddy:caddy $OPENWEBUI_UI_CADDY_CONF
+	sudo chmod -R 755 $OPENWEBUI_UI_CADDY_CONF
 else
     echo "Caddy not installed — skipping"
 fi
 
 if [ -f "$HOMER_SERVICE" ]; then
-    sudo tee "$OLLAMA_UI_HOMER_BLOCK" > /dev/null <<EOF
+    sudo tee "$OPENWEBUI_UI_HOMER_BLOCK" > /dev/null <<EOF
 Secure
       - name: Ollama
-        url: "https://$TS_DN:$((OLLAMA_UI_PORT - 10000))"
+        url: "https://$TS_DN:$((OPENWEBUI_UI_PORT - 10000))"
         subtitle: AI Chatbot
         icon: "fas fa-robot"
 Unsecure
       - name: Ollama
-        url: "http://$TS_HOST:$((OLLAMA_UI_PORT - 10001))"
+        url: "http://$TS_HOST:$((OPENWEBUI_UI_PORT - 10001))"
         subtitle: AI Chatbot
         icon: "fas fa-robot"
 EOF
