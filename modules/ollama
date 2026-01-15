@@ -36,6 +36,7 @@ fi
 sudo ln  -sf $OLLAMA_PATH/bin/ollama $CUSTOM_SCRIPTS_PATH/ollama
 
 req_python_ver="3.11.3"
+work_dir=$PWD
 
 sudo wget https://www.python.org/ftp/python/$req_python_ver/Python-$req_python_ver.tgz -O /tmp/python3.tgz
 sudo tar -xvf /tmp/python3.tgz -C "/tmp"
@@ -44,6 +45,7 @@ sudo ./configure --enable-optimizations
 sudo make -j $(( $(nproc) / 4 ))
 sudo make altinstall
 sudo rm -rf "/tmp/Python-$req_python_ver"
+cd $work_dir
 
 if [ ! -d "$OPENWEBUI_UI_VENV_PATH" ]; then
   python${req_python_ver%.*} -m venv "$OPENWEBUI_UI_VENV_PATH"
