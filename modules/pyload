@@ -10,13 +10,22 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs wget unzip
 fi
 
+sudo wget https://www.python.org/ftp/python/$req_python_ver/Python-$req_python_ver.tgz -O /tmp/python3.tgz
+sudo tar -xvf /tmp/python3.tgz -C "/tmp"
+cd "/tmp/Python-$req_python_ver"
+sudo ./configure --enable-optimizations
+sudo make -j $(( $(nproc) / 2 ))
+sudo make altinstall
+sudo rm -rf "/tmp/Python-$req_python_ver"
+cd $work_dir
+
 if [ ! -d "$PYLOAD_VENV_PATH" ]; then
-    $PYVER -m venv "$PYLOAD_VENV_PATH"
+  python${req_python_ver%.*} -m venv "$PYLOAD_VENV_PATH"
 fi
 
 source "$PYLOAD_VENV_PATH/bin/activate"
-"$PYLOAD_VENV_PATH/bin/pip" install --upgrade pip
-"$PYLOAD_VENV_PATH/bin/pip" install pyload-ng[all] beaker getch multipartposthandler safeeval bottle colorama jinja2 markupsafe pycurl setuptools thrift
+pip install --upgrade pip
+pip install pyload-ng[all] beaker getch multipartposthandler safeeval bottle colorama jinja2 markupsafe pycurl setuptools thrift
 
 mkdir -p "$USER_SCRIPT_PATH"
 sudo mkdir -p "$PYLOAD_DLD_DIR"
