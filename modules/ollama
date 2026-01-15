@@ -8,9 +8,9 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --needed base-devel zlib ncurses gdbm nss openssl readline libffi sqlite wget bzip2 wget tar pciutils
 fi
 
-wget -O /tmp/ollama.tgz "https://ollama.com/download/ollama-linux-amd64.tgz"
+wget -O /tmp/ollama.tar.zst "https://ollama.com/download/ollama-linux-amd64.tar.zst"
 sudo mkdir -p $OLLAMA_PATH
-sudo tar -xzf /tmp/ollama.tgz -C "$OLLAMA_PATH"
+sudo tar --use-compress-program=unzstd -xf /tmp/ollama.tar.zst -C "$OLLAMA_PATH"
 sudo rm /tmp/ollama.tgz
 if lspci -d 10de: | grep -q NVIDIA; then
     GPU_TYPE="nvidia"
