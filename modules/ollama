@@ -42,7 +42,7 @@ sudo wget https://www.python.org/ftp/python/$req_python_ver/Python-$req_python_v
 sudo tar -xvf /tmp/python3.tgz -C "/tmp"
 cd "/tmp/Python-$req_python_ver"
 sudo ./configure --enable-optimizations
-sudo make -j $(( $(nproc) / 4 ))
+sudo make -j $(( $(nproc) / 2 ))
 sudo make altinstall
 sudo rm -rf "/tmp/Python-$req_python_ver"
 cd $work_dir
