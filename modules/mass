@@ -47,11 +47,11 @@ EOL
 
 if command -v caddy >/dev/null 2>&1; then
     sudo tee "$MASS_CADDY_CONF" > /dev/null <<EOF
-https://$TS_DN:$((MASS_PORT + 128)) {
+https://$TS_DN:$MASS_REMOTE_PORT {
     reverse_proxy $HOST_IP:$MASS_PORT
     tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
 }
-http://$TS_HOST:$((MASS_PORT + 127)) {
+http://$TS_HOST:$((MASS_REMOTE_PORT - 1)) {
     reverse_proxy $HOST_IP:$MASS_PORT
 }
 
@@ -69,12 +69,12 @@ if [ -f "$HOMER_SERVICE" ]; then
     sudo tee "$MASS_HOMER_BLOCK" > /dev/null <<EOF
 Secure
       - name: Music-Assistant
-        url: "https://$TS_DN:$((MASS_PORT + 128))"
+        url: "https://$TS_DN:$MASS_REMOTE_PORT"
         subtitle: Music Player
         icon: "fas fa-music"
 Unsecure
       - name: Music-Assistant
-        url: "http://$TS_HOST:$((MASS_PORT + 127))"
+        url: "http://$TS_HOST:$((MASS_REMOTE_PORT - 1))"
         subtitle: Music Player
         icon: "fas fa-music"
 EOF
