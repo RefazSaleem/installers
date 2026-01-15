@@ -38,11 +38,11 @@ sudo chmod +x "$JELLYFIN_MEDIA_PERM_SCRIPT"
 
 if command -v caddy >/dev/null 2>&1; then
     sudo tee "$JELLYFIN_CADDY_CONF" > /dev/null <<EOF
-https://$TS_DN:$((JELLYFIN_PORT + 327)) {
+https://$TS_DN:$JELLYFIN_REMOTE_PORT {
     reverse_proxy $HOST_IP:$JELLYFIN_PORT
     tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
 }
-http://$TS_HOST:$((JELLYFIN_PORT + 326)) {
+http://$TS_HOST:$((JELLYFIN_REMOTE_PORT - 1)) {
     reverse_proxy $HOST_IP:$JELLYFIN_PORT
 }
 
@@ -57,12 +57,12 @@ if [ -f "$HOMER_SERVICE" ]; then
     sudo tee "$JELLYFIN_HOMER_BLOCK" > /dev/null <<EOF
 Secure
       - name: Jellyfin
-        url: "https://$TS_DN:$((JELLYFIN_PORT + 327))"
+        url: "https://$TS_DN:$JELLYFIN_REMOTE_PORT"
         subtitle: Media Server
         icon: "fas fa-tv"
 Unsecure
       - name: Jellyfin
-        url: "http://$TS_HOST:$((JELLYFIN_PORT + 326))"
+        url: "http://$TS_HOST:$((JELLYFIN_REMOTE_PORT - 1))"
         subtitle: Media Server
         icon: "fas fa-tv"
 EOF
