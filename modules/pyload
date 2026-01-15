@@ -10,6 +10,9 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -S --noconfirm python python-pip python-virtualenv base-devel ffmpeg git libpcap postgresql-libs wget unzip
 fi
 
+req_python_ver="3.11.3"
+work_dir=$PWD
+
 sudo wget https://www.python.org/ftp/python/$req_python_ver/Python-$req_python_ver.tgz -O /tmp/python3.tgz
 sudo tar -xvf /tmp/python3.tgz -C "/tmp"
 cd "/tmp/Python-$req_python_ver"
