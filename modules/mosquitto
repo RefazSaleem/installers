@@ -92,7 +92,7 @@ EOF
 cat <<'EOF' | sudo tee -a "$MOSQUITTO_AUTH_CR" > /dev/null
 read -s -p "Re-enter MQTT password for bridging: " mqtt_password
 echo
-sed "s|^MQTT_PASS.*|MQTT_PASS = \$mqtt_password\|" "$bridge_conf"
+sed -i "s|^[[:space:]]*MQTT_PASS.*|MQTT_PASS = \$mqtt_password\|" "$bridge_conf"
 EOF
 
 sudo chmod +x "$MOSQUITTO_AUTH_CR"
