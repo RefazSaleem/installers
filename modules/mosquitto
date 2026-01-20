@@ -4,9 +4,9 @@ source ./.variables
 
 if [ "$PACKAGE_MANAGER" == "apt" ]; then
     sudo apt update
-    sudo apt install -y mosquitto
+    sudo apt install -y mosquitto python3 python3-pip python3-venv python3.13-dev build-essential ffmpeg git libpcap0.8
 elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
-    sudo pacman -S --noconfirm mosquitto
+    sudo pacman -S --noconfirm mosquitto python python-pip python-virtualenv base-devel ffmpeg git libpcap
 fi
 
 cat <<EOF | sudo tee "$MOSQUITTO_SERVICE" > /dev/null
@@ -29,14 +29,68 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
+if [ ! -d "$MQTT_BR_VENV_PATH" ]; then
+  $PYVER -m venv "$MQTT_BR_VENV_PATH"
+fi
+
+source "$MQTT_BR_VENV_PATH/bin/activate"
+pip install --upgrade pip
+pip install paho-mqtt
+
+git clone "https://github.com/RefazSaleem/mqtt_bridge" $MQTT_BR_VENV_PATH/bridge
+
+mkdir -p "$USER_SCRIPT_PATH" "$MQTT_BR_CONFIG_PATH"
+
+cat > "$MQTT_BR_START_SCRIPT" <<EOL
+#!/bin/bash
+source "$MQTT_BR_VENV_PATH/bin/activate"
+$PYVER $MQTT_BR_VENV_PATH/mqtt-bridge.py
+EOL
+chmod +x "$MQTT_BR_START_SCRIPT"
+
+cat > "$MQTT_BR_CONFIG" <<EOL
+[DEFAULT]
+BROKER = $MOSQUITTO_ADDR
+PORT = $MOSQUITTO_PORT
+MQTT_USER = $MOSQUITTO_USER
+MQTT_PASS = ""
+CONFIG_DIR = ./library
+RECONNECT_DELAY = 5
+LOG_FILE = ./mqtt_bridge.log
+LOG_MAX_SIZE = 10485760
+LOG_BACKUP_COUNT = 5
+LOG_LEVEL = INFO
+EOL
+
+cat <<EOF | sudo tee -a "$MQTT_BR_SERVICE" > /dev/null
+[Unit]
+Description=MQTT Bridge
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$MQTT_BR_VENV_PATH/mqtt-bridge
+ExecStart=$MQTT_BR_START_SCRIPT
+Restart=on-failure
+User=$USER
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
+EOF
+
 sudo mkdir -p $(dirname $MOSQUITTO_AUTH_CR)
 sudo chown $USER:SERVER_GROUP $(dirname $MOSQUITTO_AUTH_CR)
 
 cat <<EOF | sudo tee "$MOSQUITTO_AUTH_CR" > /dev/null
+bridge_conf=$MQTT_BR_CONFIG
 sudo mosquitto_passwd -c $MOSQUITTO_AUTH_FILE $MOSQUITTO_USER
 sudo chown $USER:$SERVER_GROUP $MOSQUITTO_AUTH_FILE
 sudo chmod 600 $MOSQUITTO_AUTH_FILE
 sudo systemctl restart $(basename "$MOSQUITTO_SERVICE" .service)
+read -s -p "Re-enter MQTT password for bridging: " $mqtt_password
+echo
+sed -i "s/^MQTT_PASS = \"\"/MQTT_PASS = \"$mqtt_password\"/" MQTT_BR_CONFIG
 EOF
 
 sudo chmod +x "$MOSQUITTO_AUTH_CR"
@@ -56,6 +110,8 @@ log_dest file /var/log/mosquitto/mosquitto.log
 include_dir /etc/mosquitto/conf.d
 EOF
 
+sudo systemctl daemon-reload
 sudo systemctl enable --now $(basename "$MOSQUITTO_SERVICE" .service)
+sudo systemctl enable --now $(basename $MQTT_BR_SERVICE .service)
 
-echo "Mosquitto Broker has been installed and configured successfully!"
+echo "Mosquitto Broker & bridge has been installed and configured successfully!"
