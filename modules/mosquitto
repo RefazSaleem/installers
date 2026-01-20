@@ -44,7 +44,7 @@ mkdir -p "$USER_SCRIPT_PATH" "$MQTT_BR_CONFIG_PATH"
 cat > "$MQTT_BR_START_SCRIPT" <<EOL
 #!/bin/bash
 source "$MQTT_BR_VENV_PATH/bin/activate"
-$PYVER $MQTT_BR_VENV_PATH/mqtt-bridge.py
+$PYVER $MQTT_BR_VENV_PATH/bridge/mqtt_bridge.py
 EOL
 chmod +x "$MQTT_BR_START_SCRIPT"
 
@@ -69,7 +69,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=$MQTT_BR_VENV_PATH/mqtt-bridge
+WorkingDirectory=$MQTT_BR_VENV_PATH/bridge
 ExecStart=$MQTT_BR_START_SCRIPT
 Restart=on-failure
 User=$USER
