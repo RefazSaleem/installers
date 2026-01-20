@@ -88,10 +88,11 @@ sudo mosquitto_passwd -c $MOSQUITTO_AUTH_FILE $MOSQUITTO_USER
 sudo chown $USER:$SERVER_GROUP $MOSQUITTO_AUTH_FILE
 sudo chmod 600 $MOSQUITTO_AUTH_FILE
 sudo systemctl restart $(basename "$MOSQUITTO_SERVICE" .service)
+EOF
+cat <<'EOF' | sudo tee -a "$MOSQUITTO_AUTH_CR" > /dev/null
 read -s -p "Re-enter MQTT password for bridging: " $mqtt_password
 echo
-sed -i "s/^MQTT_PASS = \"\"/MQTT_PASS = \"$mqtt_password\"/" $MQTT_BR_CONFIG
-sudo systemctl restart $(basename $MQTT_BR_SERVICE .service)
+sed -i "s/^MQTT_PASS = \"\"/MQTT_PASS = \"$mqtt_password\"/" $bridge_conf
 EOF
 
 sudo chmod +x "$MOSQUITTO_AUTH_CR"
