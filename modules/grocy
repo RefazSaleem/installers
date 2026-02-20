@@ -26,7 +26,7 @@ Description=Grocy
 After=network.target
 
 [Service]
-ExecStart=php -S localhost:$GROCY_PORT -t $GROCY_DIR/public
+ExecStart=php -S $HOST_IP:$GROCY_PORT -t $GROCY_DIR/public
 WorkingDirectory=$GROCY_DIR
 User=$USER
 Restart=always
