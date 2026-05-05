@@ -22,6 +22,7 @@ MODULES=(
 	"Home Assistant:modules/hass-docker"
 	"Immich:modules/immich-docker"
 	"Jellyfin:modules/jellyfin"
+	"Linkwarden:modules/linkwarden-docker"
 	"Matrix Synapse:modules/modules-synapse"
 	"Mosquitto Broker:modules/mosquitto"
 	"Music Assistant:modules/mass"

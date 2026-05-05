@@ -15,6 +15,7 @@ MODULES=(
 	"Home Assistant"
 	"Immich"
 	"Jellyfin"
+	"Linkwarden"
 	"Matrix Synapse"
 	"Mosquitto"
 	"Music Assistant"
@@ -92,6 +93,11 @@ IMMICH_SERVICES=($(basename $IMMICH_MOUNT_SERVICE))
 JELLYFIN_FOLDERS=($JELLYFIN_DIR)
 JELLYFIN_FILES=($JELLYFIN_MEDIA_PERM_SCRIPT $JELLYFIN_CADDY_CONF $JELLYFIN_HOMER_BLOCK)
 JELLYFIN_SERVICES=(jellyfin)
+
+# Linkwarden
+LINKWARDEN_FOLDERS=($LINKWARDEN_BASE_DIR $LINKWARDEN_CONF_DIR)
+LINKWARDEN_FILES=($LINKWARDEN_ENV_FILE $LINKWARDEN_CADDY_CONF $LINKWARDEN_HOMER_BLOCK)
+LINKWARDEN_DOCKER=$LINKWARDEN_BASE_DIR
 
 # Matrix-Synapse
 SYNAPSE_FOLDERS=($SYNAPSE_VENV_PATH $SYNAPSE_LOG_PATH $SYNAPSE_CONFIG_PATH)
@@ -176,6 +182,7 @@ declare -A MODULE_CHECKS=(
 	["Home Assistant"]="$HASS_BASE_DIR $HASS_COMPOSE_FILE"
 	["Immich"]="$IMMICH_BASE_DIR"
 	["Jellyfin"]="$JELLYFIN_MEDIA_PERM_SCRIPT"
+	["Linkwarden"]="$LINKWARDEN_BASE_DIR"
 	["Matrix Synapse"]="$SYNAPSE_SERVICE"
 	["Mosquitto"]="$MOSQUITTO_SERVICE"
 	["Music Assistant"]="$MASS_SERVICE"
@@ -196,6 +203,7 @@ declare -A DOCKER_APPS=(
 	["BudgetBee"]=$BUDGETBEE_BASE_DIR
 	["Home Assistant"]=$HASS_BASE_DIR
 	["Immich"]=$IMMICH_BASE_DIR
+	["Linkwarden"]=$LINKWARDEN_BASE_DIR
 	["Paperless-ngx"]=$PNGX_BASE_DIR
 	["VaultWarden"]=$VAULTWARDEN_BASE_DIR
 	#["ESPHome"]=$ESPHOME_BASE_DIR
@@ -214,6 +222,7 @@ declare -A MODULE_SERVICES=(
 	["Home Assistant"]=""
 	["Immich"]="${IMMICH_SERVICES[*]}"
 	["Jellyfin"]="${JELLYFIN_SERVICES[*]}"
+	["Linkwarden"]=""
 	["Matrix Synapse"]="${SYNAPSE_SERVICES[*]}"
 	["Mosquitto"]="${MOSQUITTO_SERVICES[*]}"
 	["Music Assistant"]="${MASS_SERVICES[*]}"
@@ -335,6 +344,10 @@ for NAME in "${MODULES[@]}"; do
 				"Jellyfin")
 					FOLDERS_TO_REMOVE["$NAME"]="${JELLYFIN_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${JELLYFIN_FILES[*]}"
+					;;
+				"Linkwarden")
+					FOLDERS_TO_REMOVE["$NAME"]="${LINKWARDEN_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${LINKWARDEN_FILES[*]}"
 					;;
 				"Matrix Synapse")
 					FOLDERS_TO_REMOVE["$NAME"]="${SYNAPSE_FOLDERS[*]}"
