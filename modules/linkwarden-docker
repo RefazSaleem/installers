@@ -1,0 +1,115 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    VERSION="trixie"
+    sudo apt install ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: ${VERSION}
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm docker docker-compose
+fi
+
+sudo systemctl enable --now docker
+
+mkdir -p "$LINKWARDEN_BASE_DIR"
+
+cat > "$LINKWARDEN_ENV_FILE" << EOF
+NEXTAUTH_URL=http://localhost:3000/api/v1/auth
+NEXTAUTH_SECRET="System.2021"
+DATABASE_URL=postgresql://user:password@localhost:5432/linkwarden
+POSTGRES_PASSWORD="System.2021"
+APP_PORT=$LINKWARDEN_PORT
+DAT_DIR=$LINKWARDEN_CONF_DIR
+
+NEXT_PUBLIC_OLLAMA_ENDPOINT_URL=
+OLLAMA_MODEL=
+
+MEILI_HOST=
+MEILI_MASTER_KEY="System.2021"
+EOF
+
+cat > "$LINKWARDEN_COMPOSE_FILE" << 'EOF'
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    restart: always
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+  linkwarden:
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+    restart: always
+    # build: . # uncomment to build from source
+    image: ghcr.io/linkwarden/linkwarden:latest # comment to build from source
+    ports:
+      - ${APP_PORT}:3000
+    volumes:
+      - ${DAT_DIR}/data:/data/data
+    depends_on:
+      - postgres
+      - meilisearch
+  meilisearch:
+    image: getmeili/meilisearch:v1.12.8
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ${DAT_DIR}/meili_data:/meili_data
+EOF
+
+
+cd "$LINKWARDEN_BASE_DIR"
+sudo docker compose up -d
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$LINKWARDEN_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((LINKWARDEN_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$LINKWARDEN_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((LINKWARDEN_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$LINKWARDEN_PORT
+}
+
+EOF
+        sudo chown -R caddy:caddy $LINKWARDEN_CADDY_CONF
+        sudo chmod -R 755 $LINKWARDEN_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$LINKWARDEN_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Linkwarden
+        url: "https://$TS_DN:$((LINKWARDEN_PORT - 10000))"
+        subtitle: Web Archiver
+        icon: "fas fa-globe"
+Unsecure
+      - name: Linkwarden
+        url: "http://$TS_HOST:$((LINKWARDEN_PORT - 10001))"
+        subtitle: Web Archiver
+        icon: "fas fa-globe"
+EOF
+        sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+        sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Linkwarden service has been installed and configured successfully!"
