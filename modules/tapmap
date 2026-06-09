@@ -1,0 +1,76 @@
+#!/bin/bash
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y curl tar
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm curl tar
+fi
+
+sudo mkdir -p "$TAPMAP_DIR"
+mkdir -p $TAPMAP_DATABASE_DIR
+sudo wget -O "/tmp/tapmap.zip" "https://github.com/olalie/tapmap/releases/latest/download/tapmap-linux.zip"
+sudo unzip -o /tmp/tapmap.zip -d "$TAPMAP_DIR"
+wget -O tapmap.zip "https://github.com/olalie/tapmap/releases/latest/download/tapmap-linux.zip"
+curl -L -u "${YOUR_ACCOUNT_ID}:${YOUR_LICENSE_KEY}" 'https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz' -o "${TAPMAP_DATABASE_DIR}/GeoLite2-ASN.tar.gz"
+curl -L -u "${YOUR_ACCOUNT_ID}:${YOUR_LICENSE_KEY}" 'https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz' -o "${TAPMAP_DATABASE_DIR}/GeoLite2-City.tar.gz"
+sudo chown -R $USER:$SERVER_GROUP $TAPMAP_DIR
+
+cat <<EOF | sudo tee "$TAPMAP_SERVICE" > /dev/null
+[Unit]
+Description=Tapmap Service
+After=network.target
+
+[Service]
+ExecStart=$(TAPMAP_HOST=$HOST_IP TAPMAP_PORT=$TAPMAP_PORT $TAPMAP_DIR/tapmap)
+WorkingDirectory=$TAPMAP_DIR
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$(basename $TAPMAP_SERVICE)"
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$TAPMAP_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((TAPMAP_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$TAPMAP_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((TAPMAP_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$TAPMAP_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $TAPMAP_CADDY_CONF
+	sudo chmod -R 755 $TAPMAP_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$TAPMAP_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Tapmap
+        url: "https://$TS_DN:$((TAPMAP_PORT - 10000))"
+        subtitle: Network Watchdog
+        icon: "fas fa-link"
+Unsecure
+      - name: Tapmap
+        url: "http://$TS_HOST:$((TAPMAP_PORT - 10001))"
+        subtitle: Network Watchdog
+        icon: "fas fa-link"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Tapmap service has been installed and configured successfully!"
