@@ -36,6 +36,7 @@ MODULES=(
 	"Radicale:modules/radicale"
 	"Readeck:modules/readeck"
 	"SFTPGo Server:modules/sftpgo"
+	"TapMap:modules/tapmap"
 	"Vault Warden:modules/vaultwarden"
 	"vsftpd:modules/vsftpd"
 )
