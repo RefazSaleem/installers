@@ -271,7 +271,7 @@ SFTPGO_HOMER_BLOCK="$HOMER_MODULES_DIR/sftpgo.hmr"
 SFTPGO_CADDY_CONF="$CADDY_SITES/sftpgo.caddy"
 
 #TapMap Variables
-TAPMAP_PATH="/opt/tapmap"
+TAPMAP_DIR="/opt/tapmap"
 TAPMAP_PORT="16020"
 TAPMAP_SERVICE="$SERVICE_PATH/tapmap.service"
 TAPMAP_CADDY_CONF="$CADDY_SITES/tapmap.caddy"
