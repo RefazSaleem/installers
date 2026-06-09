@@ -27,6 +27,7 @@ MODULES=(
 	"pyLoad"
 	"qBittorrent"
 	"Radicale"
+	"Readeck"
 	"SFTPGo"
 	"VaultWarden"
 	"vsftpd"
