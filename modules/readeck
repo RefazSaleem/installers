@@ -9,9 +9,9 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm curl tar
 fi
 
-readeck-ver="0.22.3"
+readeck_ver="0.22.3"
 sudo mkdir -p "$READECK_PATH"
-sudo wget -O "$READECK_PATH/readeck" "https://codeberg.org/readeck/readeck/releases/download/$readeck-ver/readeck-0.22.3-linux-amd64"
+sudo wget -O "$READECK_PATH/readeck" "https://codeberg.org/readeck/readeck/releases/download/$readeck_ver/readeck-${readeck_ver}-linux-amd64"
 sudo chmod +x "$READECK_PATH/readeck"
 sudo mkdir -p "$READECK_PATH/data"
 sudo chown -R $USER:$SERVER_GROUP $READECK_PATH
