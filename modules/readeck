@@ -1,0 +1,75 @@
+#!/bin/bash
+source ./.variables
+
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y curl tar
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm curl tar
+fi
+
+readeck-ver="0.22.3"
+sudo mkdir -p "$READECK_PATH"
+sudo wget -O "$READECK_PATH/readeck" "https://codeberg.org/readeck/readeck/releases/download/$readeck-ver/readeck-0.22.3-linux-amd64"
+sudo chmod +x "$READECK_PATH/readeck"
+sudo mkdir -p "$READECK_PATH/data"
+sudo chown -R $USER:$SERVER_GROUP $READECK_PATH
+
+cat <<EOF | sudo tee "$READECK_SERVICE" > /dev/null
+[Unit]
+Description=Readeck Service
+After=network.target
+
+[Service]
+ExecStart=$READECK_PATH/readeck serve --host "$HOST_IP" --port "$READECK_PORT"
+WorkingDirectory=$READECK_PATH
+User=$USER
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$(basename $READECK_SERVICE)"
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$READECK_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((READECK_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$READECK_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((READECK_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$READECK_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $READECK_CADDY_CONF
+	sudo chmod -R 755 $READECK_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$READECK_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Readeck
+        url: "https://$TS_DN:$((READECK_PORT - 10000))"
+        subtitle: System Dashboard
+        icon: "fas fa-link"
+Unsecure
+      - name: Readeck
+        url: "http://$TS_HOST:$((READECK_PORT - 10001))"
+        subtitle: System Dashboard
+        icon: "fas fa-link"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+
+echo "Readeck service has been installed and configured successfully!"
