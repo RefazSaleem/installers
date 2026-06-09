@@ -12,11 +12,13 @@ sudo mkdir -p "$TAPMAP_DIR"
 mkdir -p "$TAPMAP_DATABASE_DIR"
 sudo wget -O "/tmp/tapmap.zip" "https://github.com/olalie/tapmap/releases/latest/download/tapmap-linux.zip"
 sudo unzip -o /tmp/tapmap.zip -d "$TAPMAP_DIR"
-curl -L -u "${MAXMIND_ID}:${MAXMIND_LICENCE}" 'https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz' -o "/tmp/GeoLite2-ASN.tar.gz"
-curl -L -u "${MAXMIND_ID}:${MAXMIND_LICENCE}" 'https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz' -o "/tmp/GeoLite2-City.tar.gz"
-tar -xvzf "/tmp/GeoLite2-ASN.tar.gz" --strip-components=1 -C "$TAPMAP_DATABASE_DIR"
-tar -xvzf "/tmp/GeoLite2-City.tar.gz" --strip-components=1 -C "$TAPMAP_DATABASE_DIR"
+sudo curl -L -u "${MAXMIND_ID}:${MAXMIND_LICENCE}" 'https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz' -o "/tmp/GeoLite2-ASN.tar.gz"
+sudo curl -L -u "${MAXMIND_ID}:${MAXMIND_LICENCE}" 'https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz' -o "/tmp/GeoLite2-City.tar.gz"
+sudo tar -xvzf "/tmp/GeoLite2-ASN.tar.gz" --strip-components=1 -C "$TAPMAP_DATABASE_DIR"
+sudo tar -xvzf "/tmp/GeoLite2-City.tar.gz" --strip-components=1 -C "$TAPMAP_DATABASE_DIR"
+sudo rm {"/tmp/GeoLite2-ASN.tar.gz","/tmp/GeoLite2-City.tar.gz,"/tmp/tapmap.zip"}
 sudo chown -R $USER:$SERVER_GROUP $TAPMAP_DIR
+sudo chown -R $USER:$SERVER_GROUP $TAPMAP_DATABASE_DIR
 
 cat <<EOF | sudo tee "$TAPMAP_SERVICE" > /dev/null
 [Unit]
