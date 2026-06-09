@@ -34,6 +34,7 @@ MODULES=(
 	"pyLoad:modules/pyload"
 	"qBittorrent:modules/qbittorrent"
 	"Radicale:modules/radicale"
+	"Readeck:modules/readeck"
 	"SFTPGo Server:modules/sftpgo"
 	"Vault Warden:modules/vaultwarden"
 	"vsftpd:modules/vsftpd"
