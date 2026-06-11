@@ -1,0 +1,4 @@
+#!/bin/sh
+
+
+curl -sL https://get.beszel.dev -o /tmp/install-agent.sh && chmod +x /tmp/install-agent.sh && /tmp/install-agent.sh -p 45876 -k "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFUpvvAlprYwuvXhLDLuaGHpV1/sdf1L6KrLvzMt9onO" -t "5479cfb3-afcb-4a3c-9a12-e2da5a12530f" -url "https://n150.civet-cloud.ts.net:6010"
