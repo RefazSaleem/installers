@@ -32,6 +32,7 @@ MODULES=(
 	"TapMap"
 	"VaultWarden"
 	"vsftpd"
+	"Zigbee2MQTT"
 )
 
 # Caddy & Tailscale
@@ -181,6 +182,12 @@ VSFTPD_FOLDERS=()
 VSFTPD_FILES=($FTP_PAM_FILE $FTP_CONFIG_PATH $FTP_SERVICE_PATH)
 VSFTPD_SERVICES=(ftp_$NEW_USER.service)
 
+# Zigbee2MQTT
+Z2MQTT_INSTANCE="zigbee2mqtt"
+Z2MQTT_FOLDERS=($Z2MQTT_PATH)
+Z2MQTT_FILES=($Z2MQTT_SERVICE $Z2MQTT_CADDY_CONF $Z2MQTT_HOMER_BLOCK)
+Z2MQTT_SERVICES=($(basename $Z2MQTT_SERVICE))
+
 declare -A MODULE_CHECKS=(
 	["Tailscale & Caddy"]="$CADDY_CONF $CADDY_CERTS"
 	["Homer Dashboard"]="$HOMER_SERVICE"
@@ -211,6 +218,7 @@ declare -A MODULE_CHECKS=(
 	["TapMap"]="$TAPMAP_SERVICE"
 	["VaultWarden"]="$VAULTWARDEN_BASE_DIR"
 	["vsftpd"]="$FTP_SERVICE_PATH"
+	["Zigbee2MQTT"]="$Z2MQTT_SERVICE"
 )
 
 declare -A DOCKER_APPS=(
@@ -253,6 +261,7 @@ declare -A MODULE_SERVICES=(
 	["TapMap"]="${TAPMAP_SERVICES[*]}"
 	["VaultWarden"]=""
 	["vsftpd"]="${VSFTPD_SERVICES[*]}"
+	["Zigbee2MQTT"]="${Z2MQTT_SERVICE[*]}"
 )
 
 WT_LIST=()
@@ -428,6 +437,10 @@ for NAME in "${MODULES[@]}"; do
 				"vsftpd")
 					FOLDERS_TO_REMOVE["$NAME"]="${VSFTPD_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${VSFTPD_FILES[*]}"
+					;;
+				"Zigbee2MQTT")
+					FOLDERS_TO_REMOVE["$NAME"]="${Z2MQTT_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${Z2MQTT_FILES[*]}"
 					;;
 			esac
 		fi
