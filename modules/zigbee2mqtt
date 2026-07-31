@@ -1,0 +1,107 @@
+#!/bin/bash
+
+source ./.variables
+
+if [ "$PACKAGE_MANAGER" == "apt" ]; then
+    sudo apt update
+    sudo apt install -y nodejs npm pnpm
+elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
+    sudo pacman -Syu --noconfirm nodejs npm pnpm
+fi
+
+sudo git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git $Z2MQTT_PATH
+sudo chown -R $USER:$SERVER_GROUP "$Z2MQTT_PATH"
+cd $Z2MQTT_PATH
+sudo npm install -g node-red
+pnpm add -g pnpm
+pnpm install --frozen-lockfile
+
+cat <<EOF | sudo tee "$Z2MQTT_SERVICE" > /dev/null
+[Unit]
+Description=Zigbee2MQTT
+After=network.target
+
+[Service]
+User=lnv
+User=$USER
+WorkingDirectory=$Z2MQTT_PATH
+Environment=ZIGBEE2MQTT_DATA=/opt/zigbee2mqtt/data
+ExecStart=$(which pnpm) start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $Z2MQTT_SERVICE)
+
+cat <<EOF | tee "$Z2MQTT_CONFIG" > /dev/null
+version: 5
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://npi:$MOSQUITTO_PORT
+  user: mqtt
+  password: Error507
+serial:
+  port: >-
+    /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_48:31:B7:C2:4C:43-if00
+  adapter: zboss
+  baudrate: 500000
+  rtscts: false
+advanced:
+  log_level: info
+  channel: 11
+  network_key: GENERATE
+  pan_id: GENERATE
+  ext_pan_id: GENERATE
+  enable_external_js: false
+frontend:
+  enabled: true
+  port: $Z2MQTT_PORT
+homeassistant:
+  enabled: false
+onboarding: false
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now $(basename $Z2MQTT_SERVICE)
+
+if command -v caddy >/dev/null 2>&1; then
+    sudo tee "$Z2MQTT_CADDY_CONF" > /dev/null <<EOF
+https://$TS_DN:$((Z2MQTT_PORT - 10000)) {
+    reverse_proxy $HOST_IP:$Z2MQTT_PORT
+    tls $CADDY_CERTS/$TS_DN.crt $CADDY_CERTS/$TS_DN.key
+}
+http://$TS_HOST:$((Z2MQTT_PORT - 10001)) {
+    reverse_proxy $HOST_IP:$Z2MQTT_PORT
+}
+
+EOF
+	sudo chown -R caddy:caddy $Z2MQTT_CADDY_CONF
+	sudo chmod -R 755 $Z2MQTT_CADDY_CONF
+else
+    echo "Caddy not installed — skipping"
+fi
+
+if [ -f "$HOMER_SERVICE" ]; then
+    sudo tee "$Z2MQTT_HOMER_BLOCK" > /dev/null <<EOF
+Secure
+      - name: Zigbee2MQTT
+        url: "https://$TS_DN:$((Z2MQTT_PORT - 10000))"
+        subtitle: Zigbee Bridge
+        icon: "fas fa-project-diagram"
+Unsecure
+      - name: Zigbee2MQTT
+        url: "http://$TS_HOST:$((Z2MQTT_PORT - 10001))"
+        subtitle: Zigbee Bridge
+        icon: "fas fa-project-diagram"
+EOF
+	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+	sudo chmod -R 755 $HOMER_MODULES_DIR
+else
+    echo "Homer not installed — skipping"
+fi
+
+echo "Zigbee2MQTT service has been installed and configured successfully!"
