@@ -297,3 +297,11 @@ FTP_DIR="/mnt/ftp"
 FTP_PAM_FILE="/etc/pam.d/$NEW_USER"
 FTP_CONFIG_PATH="/etc/vsftpd_$NEW_USER.conf"
 FTP_SERVICE_PATH="$SERVICE_PATH/ftp_$NEW_USER.service"
+
+#Zigbee2MQTT Variables
+Z2MQTT_PATH="/opt/zigbee2mqtt"
+Z2MQTT_PORT="18353"
+Z2MQTT_SERVICE="$SERVICE_PATH/zigbee2mqtt.service"
+Z2MQTT_CADDY_CONF="$CADDY_SITES/zigbee2mqtt.caddy"
+Z2MQTT_HOMER_BLOCK="$HOMER_MODULES_DIR/zigbee2mqtt.hmr"
+Z2MQTT_CONFIG="$Z2MQTT_PATH/configs/configuration.yaml"
