@@ -39,6 +39,7 @@ MODULES=(
 	"TapMap:modules/tapmap"
 	"Vault Warden:modules/vaultwarden"
 	"vsftpd:modules/vsftpd"
+	"zigbee2mqtt:modules/zigbee2mqtt"
 )
 
 WT_LIST=()
