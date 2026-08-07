@@ -47,7 +47,7 @@ HOMER_FILES=($HOMER_SERVICE $HOMER_CADDY_CONF)
 HOMER_SERVICES=($(basename $HOMER_SERVICE .service))
 
 # Auditon
-AUDITON_FOLDERS=($AUDITON_PATH)
+AUDITON_FOLDERS=($AUDITON_PATH $AUDITON_DB_PATH)
 AUDITON_FILES=($AUDITON_SERVICE $AUDITON_CADDY_CONF $AUDITON_HOMER_BLOCK $AUDITON_CONFIG)
 AUDITON_SERVICES=($(basename "$AUDITON_SERVICE"))
 
@@ -197,6 +197,7 @@ Z2MQTT_SERVICES=($(basename $Z2MQTT_SERVICE))
 declare -A MODULE_CHECKS=(
 	["Tailscale & Caddy"]="$CADDY_CONF $CADDY_CERTS"
 	["Homer Dashboard"]="$HOMER_SERVICE"
+	["Auditon"]="$AUDITON_SERVICE"
 	["Autobrr"]="$AUTOBRR_SERVICE"
 	["Beszel Hub"]="$BESZELHUB_SERVICE"
 	["BudgetBee"]="$BUDGETBEE_BASE_DIR"
@@ -240,6 +241,7 @@ declare -A DOCKER_APPS=(
 declare -A MODULE_SERVICES=(
 	["Tailscale & Caddy"]="${CADDY_SERVICES[*]}"
 	["Homer Dashboard"]="${HOMER_SERVICES[*]}"
+	["Auditon"]="${AUDITON_SERVICES[*]}"
 	["Autobrr"]="${AUTOBRR_SERVICES[*]}"
 	["Beszel Hub"]="${BESZELHUB_SERVICES[*]}"
 	["BudgetBee"]=""
@@ -335,6 +337,10 @@ for NAME in "${MODULES[@]}"; do
 				"Homer Dashboard")
 					FOLDERS_TO_REMOVE["$NAME"]="${HOMER_FOLDERS[*]}"
 					FILES_TO_REMOVE["$NAME"]="${HOMER_FILES[*]}"
+					;;
+				"Auditon")
+					FOLDERS_TO_REMOVE["$NAME"]="${AUDITON_FOLDERS[*]}"
+					FILES_TO_REMOVE["$NAME"]="${AUDITON_FILES[*]}"
 					;;
 				"Autobrr")
 					FOLDERS_TO_REMOVE["$NAME"]="${AUTOBRR_FOLDERS[*]}"
