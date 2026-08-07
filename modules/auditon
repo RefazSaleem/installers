@@ -35,7 +35,7 @@ EOF
 cat > "$AUDITON_START_SCRIPT" <<EOL
 #!/bin/bash
 source "$AUDITON_VENV/bin/activate"
-exec $PYVER -m $AUDITON_PATH/main.py
+$PYVER $AUDITON_PATH/main.py
 EOL
 chmod +x "$AUDITON_START_SCRIPT"
 
