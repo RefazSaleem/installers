@@ -5,6 +5,7 @@ source ./.variables
 MODULES=(
 	"Homer Dashboard"
 	"Tailscale & Caddy"
+	"Auditon"
 	"Autobrr"
 	"Beszel Hub"
 	"BudgetBee"
@@ -44,6 +45,11 @@ CADDY_SERVICES=(caddy.service tailscaled.service)
 HOMER_FOLDERS=($HOMER_DIR)
 HOMER_FILES=($HOMER_SERVICE $HOMER_CADDY_CONF)
 HOMER_SERVICES=($(basename $HOMER_SERVICE .service))
+
+# Auditon
+AUDITON_FOLDERS=($AUDITON_PATH)
+AUDITON_FILES=($AUDITON_SERVICE $AUDITON_CADDY_CONF $AUDITON_HOMER_BLOCK $AUDITON_CONFIG)
+AUDITON_SERVICES=($(basename "$AUDITON_SERVICE"))
 
 # Autobrr
 AUTOBRR_FOLDERS=($AUTOBRR_PATH)
