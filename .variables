@@ -38,7 +38,7 @@ HOMER_CADDY_CONF="$CADDY_SITES/homer.caddy"
 HOMER_MODULES_DIR="$HOMER_DIR/assets/services"
 
 #Auditon Variables
-AUDITON_PATH="/opt/auditon"
+AUDITON_PATH="/opt/Auditon"
 AUDITON_VENV="$AUDITON_PATH/.pip"
 AUDITON_START_SCRIPT="$AUDITON_PATH/auditon"
 AUDITON_CONF="$AUDITON_PATH/auditon.conf"
