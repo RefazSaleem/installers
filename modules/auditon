@@ -9,7 +9,7 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm python python-pip python-virtualenv
 fi
 
-cd "/opt"
+cd $(dirname "$AUDITON_PATH")
 sudo git clone https://github.com/RefazSaleem/Auditon
 sudo chown -R $USER:$SERVER_GROUP "$AUDITON_PATH"
 cd "$AUDITON_PATH"
