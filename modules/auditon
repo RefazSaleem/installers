@@ -9,7 +9,7 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm python python-pip python-virtualenv
 fi
 
-cd "/opt"
+cd $(dirname "$AUDITON_PATH")
 sudo git clone https://github.com/RefazSaleem/Auditon
 sudo chown -R $USER:$SERVER_GROUP "$AUDITON_PATH"
 cd "$AUDITON_PATH"
@@ -35,7 +35,7 @@ EOF
 cat > "$AUDITON_START_SCRIPT" <<EOL
 #!/bin/bash
 source "$AUDITON_VENV/bin/activate"
-exec $PYVER -m $AUDITON_PATH/main.py
+$PYVER $AUDITON_PATH/main.py
 EOL
 chmod +x "$AUDITON_START_SCRIPT"
 
@@ -69,8 +69,8 @@ http://$TS_HOST:$((AUDITON_PORT - 10001)) {
 }
 
 EOF
-	sudo chown -R caddy:caddy $AUDITON_CADDY_CONF
-	sudo chmod -R 755 $AUDITON_CADDY_CONF
+        sudo chown -R caddy:caddy $AUDITON_CADDY_CONF
+        sudo chmod -R 755 $AUDITON_CADDY_CONF
 else
     echo "Caddy not installed — skipping"
 fi
@@ -88,8 +88,8 @@ Unsecure
         subtitle: Budget Tracker
         icon: "fas fa-wallet"
 EOF
-	sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
-	sudo chmod -R 755 $HOMER_MODULES_DIR
+        sudo chown -R $USER:$SERVER_GROUP "$HOMER_MODULES_DIR"
+        sudo chmod -R 755 $HOMER_MODULES_DIR
 else
     echo "Homer not installed — skipping"
 fi
