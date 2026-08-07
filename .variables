@@ -37,6 +37,17 @@ HOMER_UPDATE_SCRIPT="$CUSTOM_SCRIPTS_PATH/homer-update"
 HOMER_CADDY_CONF="$CADDY_SITES/homer.caddy"
 HOMER_MODULES_DIR="$HOMER_DIR/assets/services"
 
+#Auditon Variables
+AUDITON_PATH="/opt/auditon/"
+AUDITON_PATH="/opt/auditon/"
+AUDITON_VENV="$AUDITON_PATH/.pip"
+AUDITON_DB_PATH="$AUDITON_PATH/data/database"
+AUDITON_LOG="$AUDITON_PATH/data/auditon.log"
+AUDITON_SERVICE="$SERVICE_PATH/auditon.service"
+AUDITON_PORT="16010"
+AUDITON_CADDY_CONF="$CADDY_SITES/auditon.caddy"
+AUDITON_HOMER_BLOCK="$HOMER_MODULES_DIR/auditon.hmr"
+
 #AutoBrr Variables
 AUTOBRR_PATH="/opt/autobrr"
 AUTOBRR_PORT="13050"
