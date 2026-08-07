@@ -9,7 +9,7 @@ elif [ "$PACKAGE_MANAGER" == "pacman" ]; then
     sudo pacman -Syu --noconfirm go
 fi
 
-cd "/opt"
+cd "$(dirname "$EXPENSEOWL_DIR")"
 sudo git clone https://github.com/tanq16/expenseowl.git
 sudo chown -R $USER:$SERVER_GROUP "$EXPENSEOWL_DIR"
 cd "$EXPENSEOWL_DIR"
