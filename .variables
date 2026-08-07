@@ -39,7 +39,6 @@ HOMER_MODULES_DIR="$HOMER_DIR/assets/services"
 
 #Auditon Variables
 AUDITON_PATH="/opt/auditon"
-AUDITON_PATH="/opt/auditon"
 AUDITON_VENV="$AUDITON_PATH/.pip"
 AUDITON_START_SCRIPT="$AUDITON_PATH/auditon"
 AUDITON_CONF="$AUDITON_PATH/auditon.conf"
